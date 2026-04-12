@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>タスク</title>
+  
+  <!-- iPhoneアプリ化＆ズーム防止 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- 【決定版】ワイルド・サンセットアイコン設定 -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23FF9F0A'/%3E%3Cstop offset='100%25' style='stop-color:%23FF375F'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3Cpath d='M22 52 C 28 62, 36 78, 41 80 C 46 82, 72 38, 82 22' stroke='white' stroke-width='12' stroke-linecap='round' stroke-linejoin='round' fill='none' transform='rotate(-2 50 50)'/%3E%3C/svg%3E">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+
+  <!-- React & Lucide -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.6/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #000;
+      transition: background-color 0.3s;
+    }
+    .dark body { background-color: #000; }
+    body:not(.dark) { background-color: #f4f4f5; }
+
+    * { -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { display: none; }
+    
+    /* ボタンのサンセットグラデーション */
+    .bg-sunset {
+      background: linear-gradient(135deg, #FF9F0A 0%, #FF375F 100%);
+    }
+    .text-sunset {
+      color: #FF9F0A;
+    }
+    /* ドラッグ中の揺れアニメーション */
+    @keyframes wiggle {
+      0%, 100% { transform: rotate(-0.5deg); }
+      50% { transform: rotate(0.5deg); }
+    }
+    .is-dragging {
+      animation: wiggle 0.2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-black text-white touch-manipulation overflow-x-hidden">
+  
+  <div id="root">
+    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #666; font-size: 14px;">
+      読み込み中...
+    </div>
+  </div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // --- アイコン描画システム ---
+    const LucideIcon = ({ name, size = 24, className = "", strokeWidth = 2, color = "currentColor" }) => {
+      if (typeof lucide === 'undefined' || !lucide.icons) return null;
+      const iconData = lucide.icons[name];
+      if (!iconData) return null;
+
+      if (Array.isArray(iconData)) {
+        let children = iconData;
+        if (iconData[0] === 'svg') children = iconData[2] || [];
+        else if (typeof iconData[0] === 'string' && !Array.isArray(iconData[0])) children = [iconData];
+
+        const renderNode = (node, i) => {
+          if (!Array.isArray(node)) return null;
+          const [tag, attrs, kids] = node;
+          const reactAttrs = { key: i };
+          if (attrs) {
+            for (const [k, v] of Object.entries(attrs)) {
+              let camelKey = k.replace(/-([a-z])/g, g => g[1].toUpperCase());
+              if (camelKey === 'class') camelKey = 'className';
+              reactAttrs[camelKey] = v;
+            }
+          }
+          return React.createElement(tag, reactAttrs, Array.isArray(kids) ? kids.map(renderNode) : null);
+        };
+
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+            {children.map((child, i) => renderNode(child, i))}
+          </svg>
+        );
+      }
+      return null;
+    };
+
+    const Trash2 = (p) => <LucideIcon name="Trash2" {...p} />;
+    const Share2 = (p) => <LucideIcon name="Share2" {...p} />;
+    const MoreHorizontal = (p) => <LucideIcon name="MoreHorizontal" {...p} />;
+    const Plus = (p) => <LucideIcon name="Plus" {...p} />;
+    const CheckCircle = (p) => <LucideIcon name="CheckCircle" {...p} />;
+    const Pin = (p) => <LucideIcon name="Pin" {...p} />;
+    const PinOff = (p) => <LucideIcon name="PinOff" {...p} />;
+    const Settings = (p) => <LucideIcon name="Settings" {...p} />;
+    const BookOpen = (p) => <LucideIcon name="BookOpen" {...p} />;
+    const AlertTriangle = (p) => <LucideIcon name="AlertTriangle" {...p} />;
+
+    const ACCENT_COLOR = "#FF9F0A"; 
+
+    const getCachedData = (key, defaultValue) => {
+      try {
+        const cached = localStorage.getItem(key);
+        return cached ? JSON.parse(cached) : defaultValue;
+      } catch (e) { return defaultValue; }
+    };
+
+    const setCachedData = (key, value) => {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    };
+
+    const App = () => {
+      const [items, setItems] = useState(() => getCachedData('memoapp_items', []));
+      const [editingId, setEditingId] = useState(null);
+      const [touchStart, setTouchStart] = useState(null);
+      const [touchStartY, setTouchStartY] = useState(null);
+      const [touchEnd, setTouchEnd] = useState(null);
+      const [swipingId, setSwipingId] = useState(null);
+      const [swipeType, setSwipeType] = useState(null); 
+      const [isAdding, setIsAdding] = useState(false);
+      const [newItemText, setNewItemText] = useState('');
+      const [showMenu, setShowMenu] = useState(false);
+      const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+      const [showManual, setShowManual] = useState(false);
+      
+      const longPressTimer = useRef(null);
+      const [isLongPress, setIsLongPress] = useState(false);
+      const [dragState, setDragState] = useState({
+        isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0
+      });
+
+      const [settings, setSettings] = useState(() => getCachedData('memoapp_settings', {
+        fontSize: 'medium', theme: 'dark'
+      }));
+      const [showSettings, setShowSettings] = useState(false);
+
+      const menuRef = useRef(null);
+      const ITEM_HEIGHT = 65; 
+
+      useEffect(() => {
+        const isDark = settings.theme === 'system' 
+          ? window.matchMedia('(prefers-color-scheme: dark)').matches 
+          : settings.theme === 'dark';
+        document.documentElement.classList.toggle('dark', isDark);
+      }, [settings.theme]);
+
+      useEffect(() => {
+        const handleClickOutside = (event) => {
+          if (menuRef.current && !menuRef.current.contains(event.target)) setShowMenu(false);
+        };
+        if (showMenu) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+      }, [showMenu]);
+
+      const saveData = (newItems, newConfig = null) => {
+        const currentSettings = newConfig || settings;
+        setCachedData('memoapp_items', newItems);
+        setCachedData('memoapp_settings', currentSettings);
+      };
+
+      const displayItems = useMemo(() => {
+        const filtered = items.filter(item => item.id);
+        return [...filtered].sort((a, b) => {
+          if (a.pinned === b.pinned) return 0;
+          return a.pinned ? -1 : 1;
+        });
+      }, [items]);
+
+      const completedCount = displayItems.filter(i => i.completed).length;
+      const totalCount = displayItems.length;
+
+      const toggleComplete = (e, id) => {
+        e.stopPropagation();
+        if (navigator.vibrate) navigator.vibrate(10);
+        const newItems = items.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
+        setItems(newItems); saveData(newItems);
+      };
+
+      const handlePointerDown = (e, id) => {
+        if (e.target.closest('button') || e.target.closest('input')) return;
+        if (editingId !== null) return; 
+        if (swipingId !== null && swipingId !== id) { setSwipingId(null); setSwipeType(null); }
+        e.currentTarget.setPointerCapture(e.pointerId);
+        setTouchStart(e.clientX); setTouchStartY(e.clientY); setIsLongPress(false);
+        longPressTimer.current = setTimeout(() => {
+          setIsLongPress(true);
+          if (navigator.vibrate) navigator.vibrate(50);
+          setDragState({ isDragging: true, draggedId: id, dragOverId: id, startY: e.clientY, currentY: e.clientY });
+          document.body.style.overflow = 'hidden';
+        }, 500);
+      };
+
+      const handlePointerMove = (e) => {
+        if (dragState.isDragging) {
+          const deltaY = e.clientY - dragState.startY;
+          const moveCount = Math.round(deltaY / ITEM_HEIGHT);
+          const currentIndex = displayItems.findIndex(i => i.id === dragState.draggedId);
+          const draggedItem = displayItems[currentIndex];
+          const isPinnedGroup = draggedItem.pinned;
+          const minIndex = displayItems.findIndex(i => i.pinned === isPinnedGroup);
+          let maxIndex = displayItems.length - 1;
+          for (let i = displayItems.length - 1; i >= 0; i--) {
+            if (displayItems[i].pinned === isPinnedGroup) { maxIndex = i; break; }
+          }
+          let targetIndex = Math.max(minIndex, Math.min(currentIndex + moveCount, maxIndex));
+          setDragState(prev => ({ ...prev, currentY: e.clientY, dragOverId: displayItems[targetIndex]?.id || prev.dragOverId }));
+        } else {
+          setTouchEnd(e.clientX);
+          if (longPressTimer.current && touchStartY !== null) {
+            if (Math.abs(e.clientY - touchStartY) > 10) {
+              clearTimeout(longPressTimer.current); longPressTimer.current = null;
+            }
+          }
+        }
+      };
+
+      const handlePointerUp = (e, id, isCompleted) => {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+        if (dragState.isDragging) {
+          document.body.style.overflow = '';
+          if (dragState.dragOverId && dragState.dragOverId !== dragState.draggedId) {
+            const oldIndex = displayItems.findIndex(i => i.id === dragState.draggedId);
+            const newIndex = displayItems.findIndex(i => i.id === dragState.dragOverId);
+            const newDisplayItems = [...displayItems];
+            const [removed] = newDisplayItems.splice(oldIndex, 1);
+            newDisplayItems.splice(newIndex, 0, removed);
+            setItems(newDisplayItems); saveData(newDisplayItems);
+          }
+          setDragState({ isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0 });
+          return;
+        }
+        if (touchStart === null) return;
+        const distance = touchStart - (touchEnd || touchStart);
+        if (Math.abs(distance) < 10) {
+          if (swipingId === id) { setSwipingId(null); setSwipeType(null); }
+          else if (!isCompleted && !e.target.closest('button')) setEditingId(id);
+        } else if (distance > 50) { 
+          if (swipingId === id && swipeType === 'pin') { setSwipingId(null); setSwipeType(null); }
+          else { setSwipingId(id); setSwipeType('delete'); }
+        } else if (distance < -50) {
+          if (swipingId === id && swipeType === 'delete') { setSwipingId(null); setSwipeType(null); }
+          else { setSwipingId(id); setSwipeType('pin'); }
+        }
+        setTouchStart(null); setTouchEnd(null); setTouchStartY(null);
+      };
+
+      const submitNewItem = () => {
+        const text = newItemText.trim();
+        if (!text) { setIsAdding(false); return; }
+        const newItems = [...items, { id: Date.now(), text, completed: false, pinned: false }];
+        setItems(newItems); setNewItemText(''); setIsAdding(false); saveData(newItems);
+      };
+
+      const updateSettings = (newSettings) => {
+        const updated = { ...settings, ...newSettings };
+        setSettings(updated); saveData(items, updated);
+      };
+
+      const copyListToClipboard = () => {
+        const text = displayItems.map(i => `${i.completed ? '✅' : '⬜'} ${i.text}`).join('\n');
+        const textArea = document.createElement("textarea");
+        textArea.value = text; document.body.appendChild(textArea); textArea.select();
+        document.execCommand('copy'); document.body.removeChild(textArea);
+        setShowMenu(false);
+      };
+
+      const fontSizeClass = settings.fontSize === 'small' ? 'text-base' : settings.fontSize === 'large' ? 'text-xl' : 'text-lg';
+
+      return (
+        <div className={`min-h-screen transition-colors duration-300 flex flex-col items-center select-none overflow-x-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-black text-white'}`}>
+          <header className={`w-full max-w-md px-4 pt-12 pb-4 flex justify-between items-center border-b sticky top-0 z-40 ${settings.theme === 'light' ? 'bg-white/90 border-zinc-200 shadow-sm' : 'bg-zinc-900/90 border-zinc-800'}`}>
+            <div className={`flex items-center px-4 py-1 rounded-full text-sm font-bold ${settings.theme === 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-800'}`} style={settings.theme !== 'light' ? {color: ACCENT_COLOR} : {}}>
+              {completedCount} / {totalCount}件完了
+            </div>
+            <h1 className="text-lg font-bold text-zinc-500">タスク</h1>
+            <div className="flex gap-1" ref={menuRef}>
+              <button onClick={copyListToClipboard} className="p-2 active:opacity-50" style={{color: ACCENT_COLOR}}><Share2 size={24} /></button>
+              <button onClick={() => setShowMenu(!showMenu)} className="p-2 active:opacity-50" style={{color: ACCENT_COLOR}}><MoreHorizontal size={24} /></button>
+              {showMenu && (
+                <div className={`absolute right-4 top-12 w-64 border rounded-2xl shadow-2xl z-50 overflow-hidden ${settings.theme === 'light' ? 'bg-white border-zinc-200 text-black' : 'bg-[#1C1C1E] border-zinc-800 text-white'}`}>
+                  <button onClick={() => { setShowManual(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>マニュアル</span><BookOpen size={18} style={{color: ACCENT_COLOR}} /></button>
+                  <button onClick={() => { setItems(items.filter(i => !i.completed)); saveData(items.filter(i => !i.completed)); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>完了済みを削除</span><CheckCircle size={18} className="text-zinc-400" /></button>
+                  <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm text-[#FF3B30] flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span className="font-bold">全削除</span><Trash2 size={18} /></button>
+                  <button onClick={() => { setShowSettings(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>設定</span><Settings size={18} className="text-zinc-400" /></button>
+                </div>
+              )}
+            </div>
+          </header>
+
+          <main className="w-full max-w-md px-4 mt-6">
+            <div className={`rounded-[24px] overflow-hidden shadow-xl ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
+              {displayItems.length === 0 && !isAdding && <div className="py-20 text-center text-zinc-400 text-sm font-medium italic">タスクがありません</div>}
+              {displayItems.map((item, index) => {
+                const isDragged = dragState.draggedId === item.id;
+                const isOver = dragState.dragOverId === item.id && !isDragged;
+                const offset = isDragged ? (dragState.currentY - dragState.startY) : 0;
+                const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -70 : 70) : 0;
+
+                return (
+                  <div key={item.id} className="relative touch-none overflow-hidden">
+                    <button onClick={() => { if(navigator.vibrate) navigator.vibrate(5); setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX > 0 ? '70px' : '0' }}>{item.pinned ? <PinOff size={20} /> : <Pin size={20} />}</button>
+                    <button onClick={() => { if(navigator.vibrate) navigator.vibrate(20); setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX < 0 ? '70px' : '0' }}><Trash2 size={20} /></button>
+                    <div 
+                      onPointerDown={e => handlePointerDown(e, item.id)} onPointerMove={handlePointerMove} onPointerUp={e => handlePointerUp(e, item.id, item.completed)}
+                      className={`flex items-start px-5 py-4 transition-transform duration-300 ${index !== displayItems.length - 1 ? 'border-b' : ''} ${settings.theme === 'light' ? 'border-zinc-100' : 'border-zinc-800'} ${isOver ? 'opacity-30' : ''} ${isDragged ? 'is-dragging shadow-lg' : ''}`}
+                      style={{ transform: `translateY(${offset}px) translateX(${swipeX}px)`, zIndex: isDragged ? 50 : 1, position: 'relative', backgroundColor: isDragged ? (settings.theme === 'light' ? '#fff' : '#222') : 'transparent' }}
+                    >
+                      <button onClick={e => toggleComplete(e, item.id)} className="mr-4 mt-1 flex-shrink-0">
+                        {item.completed ? (
+                          <div className="w-6 h-6 rounded-md flex items-center justify-center shadow-md bg-sunset">
+                            <CheckCircle size={16} className="text-white" />
+                          </div>
+                        ) : (
+                          <div className={`w-6 h-6 rounded-md border-2 ${settings.theme === 'light' ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-600'}`} />
+                        )}
+                      </button>
+                      {editingId === item.id ? (
+                        <input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} text-orange-600 dark:text-orange-400 font-bold`} value={item.text} onChange={e => setItems(items.map(i => i.id === item.id ? {...i, text: e.target.value} : i))} onBlur={() => { saveData(items); setEditingId(null); }} onKeyDown={e => e.key === 'Enter' && setEditingId(null)} />
+                      ) : (
+                        <span className={`flex-1 break-words transition-all ${fontSizeClass} ${item.completed ? 'text-zinc-400 line-through opacity-50' : (settings.theme === 'light' ? 'text-zinc-900 font-medium' : 'text-white')}`}>{item.text}</span>
+                      )}
+                      {item.pinned && <div className="ml-3 mt-1"><Pin size={18} className="text-[#FF9F0A] fill-[#FF9F0A]" /></div>}
+                    </div>
+                  </div>
+                );
+              })}
+              {isAdding && <div className={`flex items-center px-5 py-4 ${settings.theme === 'light' ? 'bg-orange-50/50' : 'bg-zinc-800/30'}`}><div className="mr-4"><div className="w-6 h-6 rounded-md border-2 animate-pulse shadow-[0_0_10px_rgba(255,159,10,0.3)]" style={{borderColor: ACCENT_COLOR}} /></div><input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} font-bold`} value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitNewItem()} onBlur={submitNewItem} placeholder="入力..." /></div>}
+            </div>
+            
+            {!isAdding && (
+              <button 
+                onClick={() => { if(navigator.vibrate) navigator.vibrate(5); setIsAdding(true); }} 
+                className={`w-full mt-6 mb-10 px-5 py-4 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}
+              >
+                <Plus size={24} strokeWidth={3} />
+                <span className="text-lg">新しいタスクを追加</span>
+              </button>
+            )}
+          </main>
+
+          {/* 各種オーバーレイ */}
+          {showManual && (
+            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-md px-4 pb-10 pt-16" onClick={() => setShowManual(false)}>
+              <div className={`w-full h-full max-w-md rounded-[32px] p-8 shadow-2xl flex flex-col ${settings.theme === 'light' ? 'bg-white' : 'bg-zinc-900 text-white'}`} onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-8 flex-shrink-0">
+                  <h2 className="text-2xl font-black flex items-center gap-3" style={{color: ACCENT_COLOR}}><BookOpen size={28}/> 操作ガイド</h2>
+                  <button onClick={() => setShowManual(false)} className="font-bold text-lg px-4 py-2 rounded-full bg-zinc-100 dark:bg-zinc-800" style={{color: ACCENT_COLOR}}>閉じる</button>
+                </div>
+                <div className="overflow-y-auto space-y-8 pb-10">
+                  <section className="space-y-4">
+                    <h3 className="text-xl font-bold border-l-4 pl-4" style={{borderColor: ACCENT_COLOR}}>📱 基本</h3>
+                    <p className="text-sm text-zinc-500 leading-relaxed font-medium">追加・完了・編集はタップ。データはあなたのiPhone内にのみ保存されます。</p>
+                  </section>
+                  <section className="space-y-4">
+                    <h3 className="text-xl font-bold border-l-4 pl-4" style={{borderColor: ACCENT_COLOR}}>👆 高度な操作</h3>
+                    <div className="grid gap-3">
+                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
+                        <span className="font-bold block mb-1" style={{color: ACCENT_COLOR}}>右スワイプ</span>
+                        <p className="text-xs text-zinc-500">大事なタスクを上にピン留め固定</p>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
+                        <span className="font-bold block mb-1 text-red-500">左スワイプ</span>
+                        <p className="text-xs text-zinc-500">終わったタスクをサヨナラ削除</p>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
+                        <span className="font-bold block mb-1 text-blue-500">長押し（0.5秒）</span>
+                        <p className="text-xs text-zinc-500">上下にドラッグして順番を入れ替え</p>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showSettings && (
+            <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-md px-4 pb-10" onClick={() => setShowSettings(false)}>
+              <div className={`w-full max-w-md rounded-[32px] p-8 shadow-2xl ${settings.theme === 'light' ? 'bg-white' : 'bg-zinc-900 text-white'}`} onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="text-2xl font-black" style={{color: ACCENT_COLOR}}>設定</h2>
+                  <button onClick={() => setShowSettings(false)} className="font-bold text-lg px-4 py-2 rounded-full bg-zinc-100 dark:bg-zinc-800">完了</button>
+                </div>
+                <div className="space-y-8 mb-6">
+                  <div>
+                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em]">テーマ</p>
+                    <div className="flex gap-3 p-1.5 bg-zinc-100 dark:bg-black rounded-[20px]">
+                      {['light', 'dark', 'system'].map(m => (
+                        <button key={m} onClick={() => updateSettings({theme:m})} className={`flex-1 py-3 rounded-[14px] text-sm font-black transition-all ${settings.theme === m ? 'bg-white dark:bg-zinc-800 shadow-md scale-[1.02]' : 'text-zinc-500 opacity-60'}`} style={settings.theme === m ? {color: ACCENT_COLOR} : {}}>
+                          {m === 'light' ? 'ライト' : m === 'dark' ? 'ダーク' : '自動'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em]">文字サイズ</p>
+                    <div className="flex gap-3 p-1.5 bg-zinc-100 dark:bg-black rounded-[20px]">
+                      {['small', 'medium', 'large'].map(s => (
+                        <button key={s} onClick={() => updateSettings({fontSize:s})} className={`flex-1 py-3 rounded-[14px] text-sm font-black transition-all ${settings.fontSize === s ? 'bg-white dark:bg-zinc-800 shadow-md scale-[1.02]' : 'text-zinc-500 opacity-60'}`} style={settings.fontSize === s ? {color: ACCENT_COLOR} : {}}>
+                          {s === 'small' ? '小' : s === 'medium' ? '中' : '大'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl px-8">
+              <div className={`w-full max-w-xs rounded-[32px] p-8 text-center shadow-2xl animate-in zoom-in duration-200 ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-zinc-900 border border-zinc-800'}`}>
+                <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500">
+                  <AlertTriangle size={36} />
+                </div>
+                <h3 className="text-xl font-black mb-4 text-zinc-900 dark:text-white">すべて削除しますか？</h3>
+                <p className="text-sm text-zinc-500 mb-8 font-medium leading-relaxed">これまでのタスク履歴が<br/>すべて消去されます。</p>
+                <div className="flex flex-col gap-3">
+                  <button onClick={() => {if(navigator.vibrate) navigator.vibrate(50); setItems([]); saveData([]); setShowDeleteConfirm(false);}} className="w-full py-4 bg-red-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-red-500/30">削除する</button>
+                  <button onClick={() => setShowDeleteConfirm(false)} className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 rounded-2xl font-bold">キャンセル</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
