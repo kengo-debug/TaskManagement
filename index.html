@@ -4,12 +4,13 @@
   <meta charset="UTF-8">
   <title>タスク</title>
   
-  <!-- iPhoneアプリ化＆ズーム防止 -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- iPhoneアプリ化＆ズーム防止設定 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
   
-  <!-- 【決定版】ワイルド・サンセットアイコン設定 -->
+  <!-- 【決定版】ワイルド・サンセットアイコン -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23FF9F0A'/%3E%3Cstop offset='100%25' style='stop-color:%23FF375F'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3Cpath d='M22 52 C 28 62, 36 78, 41 80 C 46 82, 72 38, 82 22' stroke='white' stroke-width='12' stroke-linecap='round' stroke-linejoin='round' fill='none' transform='rotate(-2 50 50)'/%3E%3C/svg%3E">
 
   <!-- Tailwind CSS -->
@@ -29,6 +30,8 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #000;
       transition: background-color 0.3s;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
     }
     .dark body { background-color: #000; }
     body:not(.dark) { background-color: #f4f4f5; }
@@ -36,14 +39,10 @@
     * { -webkit-tap-highlight-color: transparent; }
     ::-webkit-scrollbar { display: none; }
     
-    /* ボタンのサンセットグラデーション */
     .bg-sunset {
       background: linear-gradient(135deg, #FF9F0A 0%, #FF375F 100%);
     }
-    .text-sunset {
-      color: #FF9F0A;
-    }
-    /* ドラッグ中の揺れアニメーション */
+    
     @keyframes wiggle {
       0%, 100% { transform: rotate(-0.5deg); }
       50% { transform: rotate(0.5deg); }
@@ -64,7 +63,6 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useMemo } = React;
 
-    // --- アイコン描画システム ---
     const LucideIcon = ({ name, size = 24, className = "", strokeWidth = 2, color = "currentColor" }) => {
       if (typeof lucide === 'undefined' || !lucide.icons) return null;
       const iconData = lucide.icons[name];
@@ -108,6 +106,8 @@
     const Settings = (p) => <LucideIcon name="Settings" {...p} />;
     const BookOpen = (p) => <LucideIcon name="BookOpen" {...p} />;
     const AlertTriangle = (p) => <LucideIcon name="AlertTriangle" {...p} />;
+    const Type = (p) => <LucideIcon name="Type" {...p} />;
+    const SunMoon = (p) => <LucideIcon name="SunMoon" {...p} />;
 
     const ACCENT_COLOR = "#FF9F0A"; 
 
@@ -137,7 +137,6 @@
       const [showManual, setShowManual] = useState(false);
       
       const longPressTimer = useRef(null);
-      const [isLongPress, setIsLongPress] = useState(false);
       const [dragState, setDragState] = useState({
         isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0
       });
@@ -194,9 +193,8 @@
         if (editingId !== null) return; 
         if (swipingId !== null && swipingId !== id) { setSwipingId(null); setSwipeType(null); }
         e.currentTarget.setPointerCapture(e.pointerId);
-        setTouchStart(e.clientX); setTouchStartY(e.clientY); setIsLongPress(false);
+        setTouchStart(e.clientX); setTouchStartY(e.clientY);
         longPressTimer.current = setTimeout(() => {
-          setIsLongPress(true);
           if (navigator.vibrate) navigator.vibrate(50);
           setDragState({ isDragging: true, draggedId: id, dragOverId: id, startY: e.clientY, currentY: e.clientY });
           document.body.style.overflow = 'hidden';
@@ -249,11 +247,9 @@
           if (swipingId === id) { setSwipingId(null); setSwipeType(null); }
           else if (!isCompleted && !e.target.closest('button')) setEditingId(id);
         } else if (distance > 50) { 
-          if (swipingId === id && swipeType === 'pin') { setSwipingId(null); setSwipeType(null); }
-          else { setSwipingId(id); setSwipeType('delete'); }
+          setSwipingId(id); setSwipeType('delete');
         } else if (distance < -50) {
-          if (swipingId === id && swipeType === 'delete') { setSwipingId(null); setSwipeType(null); }
-          else { setSwipingId(id); setSwipeType('pin'); }
+          setSwipingId(id); setSwipeType('pin');
         }
         setTouchStart(null); setTouchEnd(null); setTouchStartY(null);
       };
@@ -282,7 +278,7 @@
 
       return (
         <div className={`min-h-screen transition-colors duration-300 flex flex-col items-center select-none overflow-x-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-black text-white'}`}>
-          <header className={`w-full max-w-md px-4 pt-12 pb-4 flex justify-between items-center border-b sticky top-0 z-40 ${settings.theme === 'light' ? 'bg-white/90 border-zinc-200 shadow-sm' : 'bg-zinc-900/90 border-zinc-800'}`}>
+          <header className={`w-full px-4 pt-12 pb-4 flex justify-between items-center border-b sticky top-0 z-40 ${settings.theme === 'light' ? 'bg-white/90 border-zinc-200 shadow-sm' : 'bg-zinc-900/90 border-zinc-800'}`}>
             <div className={`flex items-center px-4 py-1 rounded-full text-sm font-bold ${settings.theme === 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-800'}`} style={settings.theme !== 'light' ? {color: ACCENT_COLOR} : {}}>
               {completedCount} / {totalCount}件完了
             </div>
@@ -301,31 +297,31 @@
             </div>
           </header>
 
-          <main className="w-full max-w-md px-4 mt-6">
-            <div className={`rounded-[24px] overflow-hidden shadow-xl ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
+          <main className="w-full px-2 mt-4">
+            <div className={`w-full rounded-[24px] overflow-hidden shadow-xl ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
               {displayItems.length === 0 && !isAdding && <div className="py-20 text-center text-zinc-400 text-sm font-medium italic">タスクがありません</div>}
               {displayItems.map((item, index) => {
                 const isDragged = dragState.draggedId === item.id;
                 const isOver = dragState.dragOverId === item.id && !isDragged;
                 const offset = isDragged ? (dragState.currentY - dragState.startY) : 0;
-                const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -70 : 70) : 0;
+                const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -80 : 80) : 0;
 
                 return (
                   <div key={item.id} className="relative touch-none overflow-hidden">
-                    <button onClick={() => { if(navigator.vibrate) navigator.vibrate(5); setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX > 0 ? '70px' : '0' }}>{item.pinned ? <PinOff size={20} /> : <Pin size={20} />}</button>
-                    <button onClick={() => { if(navigator.vibrate) navigator.vibrate(20); setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX < 0 ? '70px' : '0' }}><Trash2 size={20} /></button>
+                    <button onClick={() => { setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX > 0 ? '80px' : '0' }}>{item.pinned ? <PinOff size={24} /> : <Pin size={24} />}</button>
+                    <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX < 0 ? '80px' : '0' }}><Trash2 size={24} /></button>
                     <div 
                       onPointerDown={e => handlePointerDown(e, item.id)} onPointerMove={handlePointerMove} onPointerUp={e => handlePointerUp(e, item.id, item.completed)}
-                      className={`flex items-start px-5 py-4 transition-transform duration-300 ${index !== displayItems.length - 1 ? 'border-b' : ''} ${settings.theme === 'light' ? 'border-zinc-100' : 'border-zinc-800'} ${isOver ? 'opacity-30' : ''} ${isDragged ? 'is-dragging shadow-lg' : ''}`}
+                      className={`flex items-start px-5 py-4 transition-transform duration-300 ${index !== displayItems.length - 1 ? 'border-b' : ''} ${settings.theme === 'light' ? 'border-zinc-50' : 'border-zinc-800'} ${isOver ? 'opacity-30' : ''} ${isDragged ? 'is-dragging shadow-lg' : ''}`}
                       style={{ transform: `translateY(${offset}px) translateX(${swipeX}px)`, zIndex: isDragged ? 50 : 1, position: 'relative', backgroundColor: isDragged ? (settings.theme === 'light' ? '#fff' : '#222') : 'transparent' }}
                     >
                       <button onClick={e => toggleComplete(e, item.id)} className="mr-4 mt-1 flex-shrink-0">
                         {item.completed ? (
-                          <div className="w-6 h-6 rounded-md flex items-center justify-center shadow-md bg-sunset">
-                            <CheckCircle size={16} className="text-white" />
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md bg-sunset">
+                            <CheckCircle size={18} className="text-white" />
                           </div>
                         ) : (
-                          <div className={`w-6 h-6 rounded-md border-2 ${settings.theme === 'light' ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-600'}`} />
+                          <div className={`w-7 h-7 rounded-lg border-2 ${settings.theme === 'light' ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-600'}`} />
                         )}
                       </button>
                       {editingId === item.id ? (
@@ -333,26 +329,23 @@
                       ) : (
                         <span className={`flex-1 break-words transition-all ${fontSizeClass} ${item.completed ? 'text-zinc-400 line-through opacity-50' : (settings.theme === 'light' ? 'text-zinc-900 font-medium' : 'text-white')}`}>{item.text}</span>
                       )}
-                      {item.pinned && <div className="ml-3 mt-1"><Pin size={18} className="text-[#FF9F0A] fill-[#FF9F0A]" /></div>}
+                      {item.pinned && <div className="ml-3 mt-1"><Pin size={20} className="text-[#FF9F0A] fill-[#FF9F0A]" /></div>}
                     </div>
                   </div>
                 );
               })}
-              {isAdding && <div className={`flex items-center px-5 py-4 ${settings.theme === 'light' ? 'bg-orange-50/50' : 'bg-zinc-800/30'}`}><div className="mr-4"><div className="w-6 h-6 rounded-md border-2 animate-pulse shadow-[0_0_10px_rgba(255,159,10,0.3)]" style={{borderColor: ACCENT_COLOR}} /></div><input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} font-bold`} value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitNewItem()} onBlur={submitNewItem} placeholder="入力..." /></div>}
+              {isAdding && <div className={`flex items-center px-5 py-4 ${settings.theme === 'light' ? 'bg-orange-50/50' : 'bg-zinc-800/30'}`}><div className="mr-4"><div className="w-7 h-7 rounded-lg border-2 animate-pulse" style={{borderColor: ACCENT_COLOR}} /></div><input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} font-bold`} value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitNewItem()} onBlur={submitNewItem} placeholder="入力..." /></div>}
             </div>
             
             {!isAdding && (
-              <button 
-                onClick={() => { if(navigator.vibrate) navigator.vibrate(5); setIsAdding(true); }} 
-                className={`w-full mt-6 mb-10 px-5 py-4 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}
-              >
-                <Plus size={24} strokeWidth={3} />
-                <span className="text-lg">新しいタスクを追加</span>
+              <button onClick={() => setIsAdding(true)} className={`w-full mt-6 mb-10 px-5 py-5 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}>
+                <Plus size={28} strokeWidth={3} />
+                <span className="text-xl">新しいタスクを追加</span>
               </button>
             )}
           </main>
 
-          {/* 各種オーバーレイ */}
+          {/* モーダル表示 */}
           {showManual && (
             <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-md px-4 pb-10 pt-16" onClick={() => setShowManual(false)}>
               <div className={`w-full h-full max-w-md rounded-[32px] p-8 shadow-2xl flex flex-col ${settings.theme === 'light' ? 'bg-white' : 'bg-zinc-900 text-white'}`} onClick={e => e.stopPropagation()}>
@@ -365,28 +358,12 @@
                     <h3 className="text-xl font-bold border-l-4 pl-4" style={{borderColor: ACCENT_COLOR}}>📱 基本</h3>
                     <p className="text-sm text-zinc-500 leading-relaxed font-medium">追加・完了・編集はタップ。データはあなたのiPhone内にのみ保存されます。</p>
                   </section>
-                  <section className="space-y-4">
-                    <h3 className="text-xl font-bold border-l-4 pl-4" style={{borderColor: ACCENT_COLOR}}>👆 高度な操作</h3>
-                    <div className="grid gap-3">
-                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
-                        <span className="font-bold block mb-1" style={{color: ACCENT_COLOR}}>右スワイプ</span>
-                        <p className="text-xs text-zinc-500">大事なタスクを上にピン留め固定</p>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
-                        <span className="font-bold block mb-1 text-red-500">左スワイプ</span>
-                        <p className="text-xs text-zinc-500">終わったタスクをサヨナラ削除</p>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
-                        <span className="font-bold block mb-1 text-blue-500">長押し（0.5秒）</span>
-                        <p className="text-xs text-zinc-500">上下にドラッグして順番を入れ替え</p>
-                      </div>
-                    </div>
-                  </section>
                 </div>
               </div>
             </div>
           )}
 
+          {/* 設定画面（フォントサイズ復活版） */}
           {showSettings && (
             <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-md px-4 pb-10" onClick={() => setShowSettings(false)}>
               <div className={`w-full max-w-md rounded-[32px] p-8 shadow-2xl ${settings.theme === 'light' ? 'bg-white' : 'bg-zinc-900 text-white'}`} onClick={e => e.stopPropagation()}>
@@ -396,7 +373,7 @@
                 </div>
                 <div className="space-y-8 mb-6">
                   <div>
-                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em]">テーマ</p>
+                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em] flex items-center gap-2"><SunMoon size={14} /> テーマ</p>
                     <div className="flex gap-3 p-1.5 bg-zinc-100 dark:bg-black rounded-[20px]">
                       {['light', 'dark', 'system'].map(m => (
                         <button key={m} onClick={() => updateSettings({theme:m})} className={`flex-1 py-3 rounded-[14px] text-sm font-black transition-all ${settings.theme === m ? 'bg-white dark:bg-zinc-800 shadow-md scale-[1.02]' : 'text-zinc-500 opacity-60'}`} style={settings.theme === m ? {color: ACCENT_COLOR} : {}}>
@@ -406,7 +383,7 @@
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em]">文字サイズ</p>
+                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em] flex items-center gap-2"><Type size={14} /> 文字サイズ</p>
                     <div className="flex gap-3 p-1.5 bg-zinc-100 dark:bg-black rounded-[20px]">
                       {['small', 'medium', 'large'].map(s => (
                         <button key={s} onClick={() => updateSettings({fontSize:s})} className={`flex-1 py-3 rounded-[14px] text-sm font-black transition-all ${settings.fontSize === s ? 'bg-white dark:bg-zinc-800 shadow-md scale-[1.02]' : 'text-zinc-500 opacity-60'}`} style={settings.fontSize === s ? {color: ACCENT_COLOR} : {}}>
@@ -427,9 +404,8 @@
                   <AlertTriangle size={36} />
                 </div>
                 <h3 className="text-xl font-black mb-4 text-zinc-900 dark:text-white">すべて削除しますか？</h3>
-                <p className="text-sm text-zinc-500 mb-8 font-medium leading-relaxed">これまでのタスク履歴が<br/>すべて消去されます。</p>
                 <div className="flex flex-col gap-3">
-                  <button onClick={() => {if(navigator.vibrate) navigator.vibrate(50); setItems([]); saveData([]); setShowDeleteConfirm(false);}} className="w-full py-4 bg-red-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-red-500/30">削除する</button>
+                  <button onClick={() => {setItems([]); saveData([]); setShowDeleteConfirm(false);}} className="w-full py-4 bg-red-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-red-500/30">削除する</button>
                   <button onClick={() => setShowDeleteConfirm(false)} className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 rounded-2xl font-bold">キャンセル</button>
                 </div>
               </div>
