@@ -337,29 +337,44 @@
 
                   const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -80 : 80) : 0;
                   
-                  let itemStyle = {};
+                  // めり込みを防ぐため、Y軸の移動（並べ替え）は外側のラッパーに適用する
+                  let wrapperStyle = {};
+                  let innerStyle = {};
+
                   if (isDragged) {
-                    itemStyle = {
-                      transform: `translateY(${dragState.currentY - dragState.startY}px) scale(1.02)`,
+                    wrapperStyle = {
+                      transform: `translateY(${dragState.currentY - dragState.startY}px)`,
                       zIndex: 50,
                       position: 'relative',
+                      transition: 'none'
+                    };
+                    innerStyle = {
+                      transform: `translateX(${swipeX}px) scale(1.02)`,
                       boxShadow: settings.theme === 'light' ? '0 10px 25px rgba(0,0,0,0.15)' : '0 10px 25px rgba(0,0,0,0.8)',
                       backgroundColor: settings.theme === 'light' ? '#ffffff' : '#222222',
                       transition: 'none'
                     };
                   } else {
-                    itemStyle = {
-                      transform: `translateY(${shiftY}px) translateX(${swipeX}px)`,
+                    wrapperStyle = {
+                      transform: `translateY(${shiftY}px)`,
                       transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
                       zIndex: 1,
                       position: 'relative'
                     };
+                    innerStyle = {
+                      transform: `translateX(${swipeX}px)`,
+                      transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                    };
                   }
 
                   return (
-                    <div key={item.id} className="relative touch-none overflow-hidden">
-                      <button onClick={() => { setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX > 0 ? '80px' : '0' }}>{item.pinned ? <PinOff size={24} /> : <Pin size={24} />}</button>
-                      <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX < 0 ? '80px' : '0' }}><Trash2 size={24} /></button>
+                    <div 
+                      key={item.id} 
+                      className={`relative touch-none ${isDragged ? '' : 'overflow-hidden'}`}
+                      style={wrapperStyle}
+                    >
+                      <button onClick={() => { setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300 overflow-hidden" style={{ width: swipeX > 0 ? '80px' : '0' }}>{item.pinned ? <PinOff size={24} /> : <Pin size={24} />}</button>
+                      <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300 overflow-hidden" style={{ width: swipeX < 0 ? '80px' : '0' }}><Trash2 size={24} /></button>
                       
                       <div 
                         onPointerDown={e => handlePointerDown(e, item.id)} 
@@ -367,7 +382,7 @@
                         onPointerUp={e => handlePointerUp(e, item.id, item.completed)}
                         onPointerCancel={e => handlePointerUp(e, item.id, item.completed)}
                         className={`flex items-start px-5 py-4 cursor-pointer ${index !== displayItems.length - 1 ? 'border-b' : ''} ${settings.theme === 'light' ? 'border-zinc-100' : 'border-zinc-800'} ${isDragged ? 'rounded-xl' : ''}`}
-                        style={itemStyle}
+                        style={innerStyle}
                       >
                         <button onClick={e => toggleComplete(e, item.id)} className="mr-4 mt-1 flex-shrink-0">
                           {item.completed ? (
