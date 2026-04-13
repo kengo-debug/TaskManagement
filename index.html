@@ -2,11 +2,13 @@
 <html lang="ja" class="dark">
 <head>
   <meta charset="UTF-8">
-  <title>タスク</title>
+  <title>タスク管理</title>
   
   <!-- iPhoneアプリ化＆ズーム防止設定 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <!-- ホーム画面に追加したときのアプリ名を「タスク管理」に指定 -->
+  <meta name="apple-mobile-web-app-title" content="タスク管理">
   <!-- 時刻のステータスバー背景を確実に制御するため black-translucent に設定 -->
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#1C1C1E" id="theme-color-meta">
@@ -231,7 +233,6 @@
           setSwipingId(null); setSwipeType(null);
         }
 
-        e.currentTarget.setPointerCapture(e.pointerId);
         setTouchStart(e.clientX);
         setTouchStartY(e.clientY);
         
@@ -273,9 +274,16 @@
       };
 
       const handlePointerUp = (e, id, isCompleted) => {
-        e.currentTarget.releasePointerCapture(e.pointerId);
         if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
         
+        // 縦スクロールが行われてタッチがキャンセルされた場合の処理（誤作動防止）
+        if (e.type === 'pointercancel') {
+          document.body.style.overflow = '';
+          setDragState({ isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0, dragItemHeight: 65 });
+          setTouchStart(null); setTouchEnd(null); setTouchStartY(null);
+          return;
+        }
+
         if (dragState.isDragging) {
           // ドラッグ終了でスクロールロック解除
           document.body.style.overflow = '';
@@ -409,7 +417,7 @@
                   return (
                     <div 
                       key={item.id} 
-                      className={`relative touch-none ${isDragged ? '' : 'overflow-hidden'}`}
+                      className={`relative touch-pan-y ${isDragged ? '' : 'overflow-hidden'}`}
                       style={wrapperStyle}
                     >
                       <button onClick={() => { setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300 overflow-hidden" style={{ width: swipeX > 0 ? '80px' : '0' }}>{item.pinned ? <PinOff size={24} /> : <Pin size={24} />}</button>
