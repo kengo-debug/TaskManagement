@@ -53,8 +53,8 @@
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
     }
-    /* htmlタグにdarkクラスが付与されたら背景を黒にする */
-    html.dark body { background-color: #000; }
+    /* htmlタグにdarkクラスが付与されたら背景をグレー（メニューと同じ#1C1C1E）にする */
+    html.dark body { background-color: #1C1C1E; }
 
     * { -webkit-tap-highlight-color: transparent; }
     ::-webkit-scrollbar { display: none; }
@@ -171,7 +171,8 @@
         // ライト/ダークテーマに合わせてステータスバーの色を変更
         const metaThemeColor = document.getElementById('theme-color-meta');
         if (metaThemeColor) {
-          metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f4f4f5');
+          // ダーク時はメニューと同じグレー(#1C1C1E)に統一
+          metaThemeColor.setAttribute('content', isDark ? '#1C1C1E' : '#f4f4f5');
         }
       }, [settings.theme]);
 
@@ -313,7 +314,7 @@
 
       return (
         <div className={`min-h-screen transition-colors duration-300 flex flex-col items-center select-none overflow-x-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-black text-white'}`}>
-          <header className={`w-full px-4 pt-12 pb-4 flex justify-between items-center border-b sticky top-0 z-40 ${settings.theme === 'light' ? 'bg-white/90 border-zinc-200 shadow-sm' : 'bg-zinc-900/90 border-zinc-800'}`}>
+          <header className={`w-full px-4 pt-12 pb-4 flex justify-between items-center border-b sticky top-0 z-40 ${settings.theme === 'light' ? 'bg-white/90 border-zinc-200 shadow-sm' : 'bg-[#1C1C1E]/90 border-zinc-800'}`}>
             <div className={`flex items-center px-4 py-1 rounded-full text-sm font-bold ${settings.theme === 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-800'}`} style={settings.theme !== 'light' ? {color: ACCENT_COLOR} : {}}>
               {completedCount} / {totalCount}件完了
             </div>
