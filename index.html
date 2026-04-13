@@ -59,8 +59,14 @@
       margin: 0;
       box-sizing: border-box;
     }
-    /* htmlタグにdarkクラスが付与されたら背景をグレー（メニューと同じ#1C1C1E）にする */
-    html.dark body { background-color: #1C1C1E; }
+    
+    #root {
+      height: 100%;
+      width: 100%;
+    }
+
+    /* htmlタグにdarkクラスが付与されたら背景を黒にする（上部ステータスバーは theme-color で制御） */
+    html.dark body { background-color: #000; }
 
     * { -webkit-tap-highlight-color: transparent; }
     ::-webkit-scrollbar { display: none; }
