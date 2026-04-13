@@ -8,10 +8,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#f4f4f5" id="theme-color-meta">
   
-  <!-- 【修正版】アイコンURL。iPhoneが認識しやすいよう、特殊文字を100%エンコードしたで -->
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Cdefs%3E%3ClinearGradient%20id='a'%20x1='0%25'%20y1='0%25'%20x2='100%25'%20y2='100%25'%3E%3Cstop%20offset='0%25'%20style='stop-color:%23FF9F0A'/%3E%3Cstop%20offset='100%25'%20style='stop-color:%23FF375F'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='100'%20height='100'%20fill='url(%23a)'/%3E%3Cpath%20d='M22%2052%20C%2028%2062,%2036%2078,%2041%2080%20C%2046%2082,%2072%2038,%2082%2022'%20stroke='white'%20stroke-width='12'%20stroke-linecap='round'%20stroke-linejoin='round'%20fill='none'%20transform='rotate(-2%2050%2050)'/%3E%3C/svg%3E">
+  <!-- 【決定版】ワイルド・サンセットアイコン（Base64エンコードでiPhoneに確実認識させる） -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiNGRjlGMEEiIC8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojRkYzNzVGIiAvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSJ1cmwoI2cpIiAvPjxwYXRoIGQ9Ik0yMiA1MiBDIDI4IDYyLCAzNiA3OCwgNDEgODAgQyA0NiA4MiwgNzIgMzgsIDgyIDIyIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiIHRyYW5zZm9ybT0icm90YXRlKC0yIDUwIDUwKSIgLz48L3N2Zz4=">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -30,6 +30,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #000;
       transition: background-color 0.3s;
+      /* ノッチ（セーフエリア）の余白を自動調整 */
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
     }
@@ -43,6 +44,7 @@
       background: linear-gradient(135deg, #FF9F0A 0%, #FF375F 100%);
     }
     
+    /* 並び替え中のアニメーション */
     @keyframes wiggle {
       0%, 100% { transform: rotate(-0.5deg); }
       50% { transform: rotate(0.5deg); }
@@ -106,8 +108,6 @@
     const Settings = (p) => <LucideIcon name="Settings" {...p} />;
     const BookOpen = (p) => <LucideIcon name="BookOpen" {...p} />;
     const AlertTriangle = (p) => <LucideIcon name="AlertTriangle" {...p} />;
-    const Type = (p) => <LucideIcon name="Type" {...p} />;
-    const SunMoon = (p) => <LucideIcon name="SunMoon" {...p} />;
 
     const ACCENT_COLOR = "#FF9F0A"; 
 
@@ -154,6 +154,12 @@
           ? window.matchMedia('(prefers-color-scheme: dark)').matches 
           : settings.theme === 'dark';
         document.documentElement.classList.toggle('dark', isDark);
+        
+        // ライト/ダークに合わせてステータスバーの色を変更
+        const metaThemeColor = document.getElementById('theme-color-meta');
+        if (metaThemeColor) {
+          metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f4f4f5');
+        }
       }, [settings.theme]);
 
       useEffect(() => {
@@ -247,9 +253,13 @@
           if (swipingId === id) { setSwipingId(null); setSwipeType(null); }
           else if (!isCompleted && !e.target.closest('button')) setEditingId(id);
         } else if (distance > 50) { 
-          setSwipingId(id); setSwipeType('delete');
+          // ピン留め状態から左スワイプした時は元に戻す
+          if (swipingId === id && swipeType === 'pin') { setSwipingId(null); setSwipeType(null); }
+          else { setSwipingId(id); setSwipeType('delete'); }
         } else if (distance < -50) {
-          setSwipingId(id); setSwipeType('pin');
+          // 削除状態から右スワイプした時は元に戻す
+          if (swipingId === id && swipeType === 'delete') { setSwipingId(null); setSwipeType(null); }
+          else { setSwipingId(id); setSwipeType('pin'); }
         }
         setTouchStart(null); setTouchEnd(null); setTouchStartY(null);
       };
@@ -278,6 +288,7 @@
 
       return (
         <div className={`min-h-screen transition-colors duration-300 flex flex-col items-center select-none overflow-x-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-black text-white'}`}>
+          {/* ヘッダーの幅を画面いっぱいに (w-full max-w-none) */}
           <header className={`w-full px-4 pt-12 pb-4 flex justify-between items-center border-b sticky top-0 z-40 ${settings.theme === 'light' ? 'bg-white/90 border-zinc-200 shadow-sm' : 'bg-zinc-900/90 border-zinc-800'}`}>
             <div className={`flex items-center px-4 py-1 rounded-full text-sm font-bold ${settings.theme === 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-800'}`} style={settings.theme !== 'light' ? {color: ACCENT_COLOR} : {}}>
               {completedCount} / {totalCount}件完了
@@ -298,6 +309,7 @@
           </header>
 
           <main className="w-full px-2 mt-4">
+            {/* メインリストの幅も画面いっぱいに */}
             <div className={`w-full rounded-[24px] overflow-hidden shadow-xl ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
               {displayItems.length === 0 && !isAdding && <div className="py-20 text-center text-zinc-400 text-sm font-medium italic">タスクがありません</div>}
               {displayItems.map((item, index) => {
@@ -338,14 +350,17 @@
             </div>
             
             {!isAdding && (
-              <button onClick={() => setIsAdding(true)} className={`w-full mt-6 mb-10 px-5 py-5 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}>
+              <button 
+                onClick={() => setIsAdding(true)} 
+                className={`w-full mt-6 mb-10 px-5 py-5 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}
+              >
                 <Plus size={28} strokeWidth={3} />
                 <span className="text-xl">新しいタスクを追加</span>
               </button>
             )}
           </main>
 
-          {/* モーダル系 */}
+          {/* 各種オーバーレイはそのまま */}
           {showManual && (
             <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-md px-4 pb-10 pt-16" onClick={() => setShowManual(false)}>
               <div className={`w-full h-full max-w-md rounded-[32px] p-8 shadow-2xl flex flex-col ${settings.theme === 'light' ? 'bg-white' : 'bg-zinc-900 text-white'}`} onClick={e => e.stopPropagation()}>
@@ -363,7 +378,6 @@
             </div>
           )}
 
-          {/* 設定画面 */}
           {showSettings && (
             <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-md px-4 pb-10" onClick={() => setShowSettings(false)}>
               <div className={`w-full max-w-md rounded-[32px] p-8 shadow-2xl ${settings.theme === 'light' ? 'bg-white' : 'bg-zinc-900 text-white'}`} onClick={e => e.stopPropagation()}>
@@ -373,21 +387,11 @@
                 </div>
                 <div className="space-y-8 mb-6">
                   <div>
-                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em] flex items-center gap-2"><SunMoon size={14} /> テーマ</p>
+                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em]">テーマ</p>
                     <div className="flex gap-3 p-1.5 bg-zinc-100 dark:bg-black rounded-[20px]">
                       {['light', 'dark', 'system'].map(m => (
                         <button key={m} onClick={() => updateSettings({theme:m})} className={`flex-1 py-3 rounded-[14px] text-sm font-black transition-all ${settings.theme === m ? 'bg-white dark:bg-zinc-800 shadow-md scale-[1.02]' : 'text-zinc-500 opacity-60'}`} style={settings.theme === m ? {color: ACCENT_COLOR} : {}}>
                           {m === 'light' ? 'ライト' : m === 'dark' ? 'ダーク' : '自動'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em] flex items-center gap-2"><Type size={14} /> 文字サイズ</p>
-                    <div className="flex gap-3 p-1.5 bg-zinc-100 dark:bg-black rounded-[20px]">
-                      {['small', 'medium', 'large'].map(s => (
-                        <button key={s} onClick={() => updateSettings({fontSize:s})} className={`flex-1 py-3 rounded-[14px] text-sm font-black transition-all ${settings.fontSize === s ? 'bg-white dark:bg-zinc-800 shadow-md scale-[1.02]' : 'text-zinc-500 opacity-60'}`} style={settings.fontSize === s ? {color: ACCENT_COLOR} : {}}>
-                          {s === 'small' ? '小' : s === 'medium' ? '中' : '大'}
                         </button>
                       ))}
                     </div>
