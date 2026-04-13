@@ -43,15 +43,6 @@
     .bg-sunset {
       background: linear-gradient(135deg, #FF9F0A 0%, #FF375F 100%);
     }
-    
-    /* 並び替え中のアニメーション */
-    @keyframes wiggle {
-      0%, 100% { transform: rotate(-0.5deg); }
-      50% { transform: rotate(0.5deg); }
-    }
-    .is-dragging {
-      animation: wiggle 0.2s infinite ease-in-out;
-    }
   </style>
 </head>
 <body class="bg-black text-white touch-manipulation overflow-x-hidden">
@@ -141,7 +132,7 @@
       
       const longPressTimer = useRef(null);
       const [dragState, setDragState] = useState({
-        isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0
+        isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0, dragItemHeight: 65
       });
 
       const [settings, setSettings] = useState(() => getCachedData('memoapp_settings', {
@@ -200,12 +191,24 @@
       const handlePointerDown = (e, id) => {
         if (e.target.closest('button') || e.target.closest('input')) return;
         if (editingId !== null) return; 
-        if (swipingId !== null && swipingId !== id) { setSwipingId(null); setSwipeType(null); }
+
+        if (swipingId !== null && swipingId !== id) {
+          setSwipingId(null); setSwipeType(null);
+        }
+
         e.currentTarget.setPointerCapture(e.pointerId);
-        setTouchStart(e.clientX); setTouchStartY(e.clientY);
+        setTouchStart(e.clientX);
+        setTouchStartY(e.clientY);
+        
+        // 掴んだ要素の実際の高さを取得し、移動量の計算に利用する
+        const rect = e.currentTarget.getBoundingClientRect();
+        const itemHeight = rect.height || 65;
+
         longPressTimer.current = setTimeout(() => {
           if (navigator.vibrate) navigator.vibrate(50);
-          setDragState({ isDragging: true, draggedId: id, dragOverId: id, startY: e.clientY, currentY: e.clientY });
+          setDragState({
+            isDragging: true, draggedId: id, dragOverId: id, startY: e.clientY, currentY: e.clientY, dragItemHeight: itemHeight
+          });
           document.body.style.overflow = 'hidden';
         }, 500);
       };
@@ -213,7 +216,7 @@
       const handlePointerMove = (e) => {
         if (dragState.isDragging) {
           const deltaY = e.clientY - dragState.startY;
-          const moveCount = Math.round(deltaY / ITEM_HEIGHT);
+          const moveCount = Math.round(deltaY / dragState.dragItemHeight);
           const currentIndex = displayItems.findIndex(i => i.id === dragState.draggedId);
           const draggedItem = displayItems[currentIndex];
           const isPinnedGroup = draggedItem.pinned;
@@ -247,7 +250,7 @@
             newDisplayItems.splice(newIndex, 0, removed);
             setItems(newDisplayItems); saveData(newDisplayItems);
           }
-          setDragState({ isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0 });
+          setDragState({ isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0, dragItemHeight: 65 });
           return;
         }
         if (touchStart === null) return;
@@ -313,40 +316,80 @@
           <main className="w-full px-2 mt-4">
             <div className={`w-full rounded-[24px] overflow-hidden shadow-xl ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
               {displayItems.length === 0 && !isAdding && <div className="py-20 text-center text-zinc-400 text-sm font-medium italic">タスクがありません</div>}
-              {displayItems.map((item, index) => {
-                const isDragged = dragState.draggedId === item.id;
-                const isOver = dragState.dragOverId === item.id && !isDragged;
-                const offset = isDragged ? (dragState.currentY - dragState.startY) : 0;
-                const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -80 : 80) : 0;
+              
+              {(() => {
+                // ドロップ時の位置を計算するために、ドラッグ中の項目のインデックスを取得
+                const draggedIndex = displayItems.findIndex(i => i.id === dragState.draggedId);
+                const dragOverIndex = displayItems.findIndex(i => i.id === dragState.dragOverId);
 
-                return (
-                  <div key={item.id} className="relative touch-none overflow-hidden">
-                    <button onClick={() => { setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX > 0 ? '80px' : '0' }}>{item.pinned ? <PinOff size={24} /> : <Pin size={24} />}</button>
-                    <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX < 0 ? '80px' : '0' }}><Trash2 size={24} /></button>
-                    <div 
-                      onPointerDown={e => handlePointerDown(e, item.id)} onPointerMove={handlePointerMove} onPointerUp={e => handlePointerUp(e, item.id, item.completed)}
-                      className={`flex items-start px-5 py-4 transition-transform duration-300 ${index !== displayItems.length - 1 ? 'border-b' : ''} ${settings.theme === 'light' ? 'border-zinc-50' : 'border-zinc-800'} ${isOver ? 'opacity-30' : ''} ${isDragged ? 'is-dragging shadow-lg' : ''}`}
-                      style={{ transform: `translateY(${offset}px) translateX(${swipeX}px)`, zIndex: isDragged ? 50 : 1, position: 'relative', backgroundColor: isDragged ? (settings.theme === 'light' ? '#fff' : '#222') : 'transparent' }}
-                    >
-                      <button onClick={e => toggleComplete(e, item.id)} className="mr-4 mt-1 flex-shrink-0">
-                        {item.completed ? (
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md bg-sunset">
-                            <CheckCircle size={18} className="text-white" />
-                          </div>
+                return displayItems.map((item, index) => {
+                  const isDragged = dragState.draggedId === item.id;
+                  
+                  // ドロップ先のスペースを空けるための計算（リアルタイムで項目をずらす処理）
+                  let shiftY = 0;
+                  if (dragState.isDragging && !isDragged) {
+                    if (draggedIndex < dragOverIndex && index > draggedIndex && index <= dragOverIndex) {
+                      shiftY = -dragState.dragItemHeight; // 上にスライドしてスペースを作る
+                    } else if (draggedIndex > dragOverIndex && index >= dragOverIndex && index < draggedIndex) {
+                      shiftY = dragState.dragItemHeight; // 下にスライドしてスペースを作る
+                    }
+                  }
+
+                  const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -80 : 80) : 0;
+                  
+                  let itemStyle = {};
+                  if (isDragged) {
+                    itemStyle = {
+                      transform: `translateY(${dragState.currentY - dragState.startY}px) scale(1.02)`,
+                      zIndex: 50,
+                      position: 'relative',
+                      boxShadow: settings.theme === 'light' ? '0 10px 25px rgba(0,0,0,0.15)' : '0 10px 25px rgba(0,0,0,0.8)',
+                      backgroundColor: settings.theme === 'light' ? '#ffffff' : '#222222',
+                      transition: 'none'
+                    };
+                  } else {
+                    itemStyle = {
+                      transform: `translateY(${shiftY}px) translateX(${swipeX}px)`,
+                      transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                      zIndex: 1,
+                      position: 'relative'
+                    };
+                  }
+
+                  return (
+                    <div key={item.id} className="relative touch-none overflow-hidden">
+                      <button onClick={() => { setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX > 0 ? '80px' : '0' }}>{item.pinned ? <PinOff size={24} /> : <Pin size={24} />}</button>
+                      <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300" style={{ width: swipeX < 0 ? '80px' : '0' }}><Trash2 size={24} /></button>
+                      
+                      <div 
+                        onPointerDown={e => handlePointerDown(e, item.id)} 
+                        onPointerMove={handlePointerMove} 
+                        onPointerUp={e => handlePointerUp(e, item.id, item.completed)}
+                        onPointerCancel={e => handlePointerUp(e, item.id, item.completed)}
+                        className={`flex items-start px-5 py-4 cursor-pointer ${index !== displayItems.length - 1 ? 'border-b' : ''} ${settings.theme === 'light' ? 'border-zinc-100' : 'border-zinc-800'} ${isDragged ? 'rounded-xl' : ''}`}
+                        style={itemStyle}
+                      >
+                        <button onClick={e => toggleComplete(e, item.id)} className="mr-4 mt-1 flex-shrink-0">
+                          {item.completed ? (
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md bg-sunset">
+                              <CheckCircle size={18} className="text-white" />
+                            </div>
+                          ) : (
+                            <div className={`w-7 h-7 rounded-lg border-2 ${settings.theme === 'light' ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-600'}`} />
+                          )}
+                        </button>
+                        {editingId === item.id ? (
+                          <input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} text-orange-600 dark:text-orange-400 font-bold`} value={item.text} onChange={e => setItems(items.map(i => i.id === item.id ? {...i, text: e.target.value} : i))} onBlur={() => { saveData(items); setEditingId(null); }} onKeyDown={e => e.key === 'Enter' && setEditingId(null)} />
                         ) : (
-                          <div className={`w-7 h-7 rounded-lg border-2 ${settings.theme === 'light' ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-600'}`} />
+                          <span className={`flex-1 break-words transition-all ${fontSizeClass} ${item.completed ? 'text-zinc-400 line-through opacity-50' : (settings.theme === 'light' ? 'text-zinc-900 font-medium' : 'text-white')}`}>{item.text}</span>
                         )}
-                      </button>
-                      {editingId === item.id ? (
-                        <input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} text-orange-600 dark:text-orange-400 font-bold`} value={item.text} onChange={e => setItems(items.map(i => i.id === item.id ? {...i, text: e.target.value} : i))} onBlur={() => { saveData(items); setEditingId(null); }} onKeyDown={e => e.key === 'Enter' && setEditingId(null)} />
-                      ) : (
-                        <span className={`flex-1 break-words transition-all ${fontSizeClass} ${item.completed ? 'text-zinc-400 line-through opacity-50' : (settings.theme === 'light' ? 'text-zinc-900 font-medium' : 'text-white')}`}>{item.text}</span>
-                      )}
-                      {item.pinned && <div className="ml-3 mt-1"><Pin size={20} className="text-[#FF9F0A] fill-[#FF9F0A]" /></div>}
+                        {item.pinned && <div className="ml-3 mt-1"><Pin size={20} className="text-[#FF9F0A] fill-[#FF9F0A]" /></div>}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
+              
               {isAdding && <div className={`flex items-center px-5 py-4 ${settings.theme === 'light' ? 'bg-orange-50/50' : 'bg-zinc-800/30'}`}><div className="mr-4"><div className="w-7 h-7 rounded-lg border-2 animate-pulse" style={{borderColor: ACCENT_COLOR}} /></div><input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} font-bold`} value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitNewItem()} onBlur={submitNewItem} placeholder="入力..." /></div>}
             </div>
             
@@ -404,7 +447,7 @@
                       </div>
                       <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
                         <span className="font-bold block mb-1 text-blue-500">長押し：順番の入れ替え</span>
-                        <p className="text-xs text-zinc-500 leading-relaxed">タスクを0.5秒ほど長押しして浮き上がったら、そのまま上下にドラッグして任意の場所に移動できます。</p>
+                        <p className="text-xs text-zinc-500 leading-relaxed">タスクを0.5秒ほど長押しして浮き上がったら、そのまま上下にドラッグして任意の場所に移動できます。移動先の項目がハイライト表示されます。</p>
                       </div>
                     </div>
                   </section>
