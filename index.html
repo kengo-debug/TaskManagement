@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#f4f4f5" id="theme-color-meta">
   
-  <!-- 【決定版】ワイルド・サンセットアイコン（Base64エンコードでiPhoneに確実認識させる） -->
+  <!-- 【決定版】ワイルド・サンセットアイコン（Base64エンコードで端末に確実に認識させる） -->
   <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiNGRjlGMEEiIC8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojRkYzNzVGIiAvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSJ1cmwoI2cpIiAvPjxwYXRoIGQ9Ik0yMiA1MiBDIDI4IDYyLCAzNiA3OCwgNDEgODAgQyA0NiA4MiwgNzIgMzgsIDgyIDIyIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiIHRyYW5zZm9ybT0icm90YXRlKC0yIDUwIDUwKSIgLz48L3N2Zz4=">
 
   <!-- Tailwind CSS -->
@@ -108,9 +108,12 @@
     const Settings = (p) => <LucideIcon name="Settings" {...p} />;
     const BookOpen = (p) => <LucideIcon name="BookOpen" {...p} />;
     const AlertTriangle = (p) => <LucideIcon name="AlertTriangle" {...p} />;
+    const Type = (p) => <LucideIcon name="Type" {...p} />;
+    const SunMoon = (p) => <LucideIcon name="SunMoon" {...p} />;
 
     const ACCENT_COLOR = "#FF9F0A"; 
 
+    // ローカルストレージの読み書き用ヘルパー関数
     const getCachedData = (key, defaultValue) => {
       try {
         const cached = localStorage.getItem(key);
@@ -155,7 +158,7 @@
           : settings.theme === 'dark';
         document.documentElement.classList.toggle('dark', isDark);
         
-        // ライト/ダークに合わせてステータスバーの色を変更
+        // ライト/ダークテーマに合わせてステータスバーの色を変更
         const metaThemeColor = document.getElementById('theme-color-meta');
         if (metaThemeColor) {
           metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f4f4f5');
@@ -253,11 +256,11 @@
           if (swipingId === id) { setSwipingId(null); setSwipeType(null); }
           else if (!isCompleted && !e.target.closest('button')) setEditingId(id);
         } else if (distance > 50) { 
-          // ピン留め状態から左スワイプした時は元に戻す
+          // ピン留め状態から左スワイプした時は元の状態に戻す
           if (swipingId === id && swipeType === 'pin') { setSwipingId(null); setSwipeType(null); }
           else { setSwipingId(id); setSwipeType('delete'); }
         } else if (distance < -50) {
-          // 削除状態から右スワイプした時は元に戻す
+          // 削除状態から右スワイプした時は元の状態に戻す
           if (swipingId === id && swipeType === 'delete') { setSwipingId(null); setSwipeType(null); }
           else { setSwipingId(id); setSwipeType('pin'); }
         }
@@ -288,7 +291,6 @@
 
       return (
         <div className={`min-h-screen transition-colors duration-300 flex flex-col items-center select-none overflow-x-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-black text-white'}`}>
-          {/* ヘッダーの幅を画面いっぱいに (w-full max-w-none) */}
           <header className={`w-full px-4 pt-12 pb-4 flex justify-between items-center border-b sticky top-0 z-40 ${settings.theme === 'light' ? 'bg-white/90 border-zinc-200 shadow-sm' : 'bg-zinc-900/90 border-zinc-800'}`}>
             <div className={`flex items-center px-4 py-1 rounded-full text-sm font-bold ${settings.theme === 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-800'}`} style={settings.theme !== 'light' ? {color: ACCENT_COLOR} : {}}>
               {completedCount} / {totalCount}件完了
@@ -299,9 +301,9 @@
               <button onClick={() => setShowMenu(!showMenu)} className="p-2 active:opacity-50" style={{color: ACCENT_COLOR}}><MoreHorizontal size={24} /></button>
               {showMenu && (
                 <div className={`absolute right-4 top-12 w-64 border rounded-2xl shadow-2xl z-50 overflow-hidden ${settings.theme === 'light' ? 'bg-white border-zinc-200 text-black' : 'bg-[#1C1C1E] border-zinc-800 text-white'}`}>
-                  <button onClick={() => { setShowManual(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>マニュアル</span><BookOpen size={18} style={{color: ACCENT_COLOR}} /></button>
                   <button onClick={() => { setItems(items.filter(i => !i.completed)); saveData(items.filter(i => !i.completed)); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>完了済みを削除</span><CheckCircle size={18} className="text-zinc-400" /></button>
                   <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm text-[#FF3B30] flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span className="font-bold">全削除</span><Trash2 size={18} /></button>
+                  <button onClick={() => { setShowManual(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>マニュアル</span><BookOpen size={18} style={{color: ACCENT_COLOR}} /></button>
                   <button onClick={() => { setShowSettings(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>設定</span><Settings size={18} className="text-zinc-400" /></button>
                 </div>
               )}
@@ -309,7 +311,6 @@
           </header>
 
           <main className="w-full px-2 mt-4">
-            {/* メインリストの幅も画面いっぱいに */}
             <div className={`w-full rounded-[24px] overflow-hidden shadow-xl ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
               {displayItems.length === 0 && !isAdding && <div className="py-20 text-center text-zinc-400 text-sm font-medium italic">タスクがありません</div>}
               {displayItems.map((item, index) => {
@@ -350,34 +351,94 @@
             </div>
             
             {!isAdding && (
-              <button 
-                onClick={() => setIsAdding(true)} 
-                className={`w-full mt-6 mb-10 px-5 py-5 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}
-              >
+              <button onClick={() => setIsAdding(true)} className={`w-full mt-6 mb-10 px-5 py-5 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}>
                 <Plus size={28} strokeWidth={3} />
                 <span className="text-xl">新しいタスクを追加</span>
               </button>
             )}
           </main>
 
-          {/* 各種オーバーレイはそのまま */}
+          {/* マニュアル画面 */}
           {showManual && (
             <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-md px-4 pb-10 pt-16" onClick={() => setShowManual(false)}>
               <div className={`w-full h-full max-w-md rounded-[32px] p-8 shadow-2xl flex flex-col ${settings.theme === 'light' ? 'bg-white' : 'bg-zinc-900 text-white'}`} onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-8 flex-shrink-0">
+                <div className="flex justify-between items-center mb-6 flex-shrink-0">
                   <h2 className="text-2xl font-black flex items-center gap-3" style={{color: ACCENT_COLOR}}><BookOpen size={28}/> 操作ガイド</h2>
                   <button onClick={() => setShowManual(false)} className="font-bold text-lg px-4 py-2 rounded-full bg-zinc-100 dark:bg-zinc-800" style={{color: ACCENT_COLOR}}>閉じる</button>
                 </div>
-                <div className="overflow-y-auto space-y-8 pb-10">
+                
+                <div className="overflow-y-auto space-y-8 pb-10 pr-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  
+                  <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    このアプリは、直感的な操作で日々のタスクを管理するための専用ツールです。
+                  </div>
+
                   <section className="space-y-4">
-                    <h3 className="text-xl font-bold border-l-4 pl-4" style={{borderColor: ACCENT_COLOR}}>📱 基本</h3>
-                    <p className="text-sm text-zinc-500 leading-relaxed font-medium">追加・完了・編集はタップ。データはあなたのiPhone内にのみ保存されます。</p>
+                    <h3 className="text-xl font-bold border-l-4 pl-4" style={{borderColor: ACCENT_COLOR}}>📱 基本操作</h3>
+                    <div className="space-y-4">
+                      <div className={`p-4 rounded-2xl ${settings.theme === 'light' ? 'bg-zinc-50' : 'bg-zinc-800/50'}`}>
+                        <div className="font-black mb-1 flex items-center gap-2"><Plus size={16} style={{color: ACCENT_COLOR}} /> タスクを追加</div>
+                        <p className="text-xs text-zinc-500 leading-relaxed font-medium">画面下部の「新しいタスクを追加」ボタンをタップします。文字を入力してキーボードの「Enter」を押すか、枠外をタップすると追加されます。</p>
+                      </div>
+                      <div className={`p-4 rounded-2xl ${settings.theme === 'light' ? 'bg-zinc-50' : 'bg-zinc-800/50'}`}>
+                        <div className="font-black mb-1 flex items-center gap-2"><CheckCircle size={16} className="text-zinc-400" /> タスクを完了</div>
+                        <p className="text-xs text-zinc-500 leading-relaxed font-medium">左の丸いチェックボックスをタップすると完了状態になります。もう一度タップすると未完了に戻ります。</p>
+                      </div>
+                      <div className={`p-4 rounded-2xl ${settings.theme === 'light' ? 'bg-zinc-50' : 'bg-zinc-800/50'}`}>
+                        <div className="font-black mb-1 flex items-center gap-2"><Type size={16} className="text-zinc-400" /> タスクを編集</div>
+                        <p className="text-xs text-zinc-500 leading-relaxed font-medium">タスクの文字部分をタップすると入力モードになり、修正できます。<br/><span className="text-[#FF375F] font-bold mt-1 inline-block">※誤操作防止のため、完了済みのタスクは編集できません。</span></p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h3 className="text-xl font-bold border-l-4 pl-4" style={{borderColor: ACCENT_COLOR}}>👆 高度な操作</h3>
+                    <div className="grid gap-3">
+                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
+                        <span className="font-bold block mb-1" style={{color: ACCENT_COLOR}}>右スワイプ：ピン留め</span>
+                        <p className="text-xs text-zinc-500 leading-relaxed">タスクを左から右へスワイプします。オレンジのピンボタンをタップすると、リストの一番上に固定されます。</p>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
+                        <span className="font-bold block mb-1 text-red-500">左スワイプ：削除</span>
+                        <p className="text-xs text-zinc-500 leading-relaxed">タスクを右から左へスワイプします。赤いゴミ箱ボタンをタップすると削除されます。</p>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700">
+                        <span className="font-bold block mb-1 text-blue-500">長押し：順番の入れ替え</span>
+                        <p className="text-xs text-zinc-500 leading-relaxed">タスクを0.5秒ほど長押しして浮き上がったら、そのまま上下にドラッグして任意の場所に移動できます。</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h3 className="text-xl font-bold border-l-4 pl-4" style={{borderColor: ACCENT_COLOR}}>⚙️ 便利機能</h3>
+                    <div className="space-y-4">
+                      <div className={`p-4 rounded-2xl ${settings.theme === 'light' ? 'bg-zinc-50' : 'bg-zinc-800/50'}`}>
+                        <div className="font-black mb-1 flex items-center gap-2"><Share2 size={16} style={{color: ACCENT_COLOR}} /> 共有（コピー）</div>
+                        <p className="text-xs text-zinc-500 leading-relaxed font-medium">右上の共有アイコンをタップすると、現在のリストがテキストとしてコピーされます。SNSやメールで共有する際に便利です。</p>
+                      </div>
+                      <div className={`p-4 rounded-2xl ${settings.theme === 'light' ? 'bg-zinc-50' : 'bg-zinc-800/50'}`}>
+                        <div className="font-black mb-1 flex items-center gap-2"><MoreHorizontal size={16} style={{color: ACCENT_COLOR}} /> メニュー</div>
+                        <p className="text-xs text-zinc-500 leading-relaxed font-medium">
+                          ・<strong className="text-zinc-700 dark:text-zinc-300">完了済みを削除:</strong> 完了済みのタスクを一括で削除します。<br/>
+                          ・<strong className="text-red-500">全削除:</strong> 全てのタスクを削除します。<br/>
+                          ・<strong className="text-zinc-700 dark:text-zinc-300">設定:</strong> 画面のテーマ（色）や文字サイズを変更できます。
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h3 className="text-xl font-bold border-l-4 pl-4" style={{borderColor: ACCENT_COLOR}}>💾 データの保存</h3>
+                    <p className="text-sm text-zinc-500 leading-relaxed font-medium bg-orange-50 dark:bg-orange-900/20 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/50">
+                      このアプリは操作を行った瞬間に、端末内に自動でデータを保存します。そのため、保存ボタンを押す必要はなく、オフラインでも快適に使用できます。
+                    </p>
                   </section>
                 </div>
               </div>
             </div>
           )}
 
+          {/* 設定画面 */}
           {showSettings && (
             <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-md px-4 pb-10" onClick={() => setShowSettings(false)}>
               <div className={`w-full max-w-md rounded-[32px] p-8 shadow-2xl ${settings.theme === 'light' ? 'bg-white' : 'bg-zinc-900 text-white'}`} onClick={e => e.stopPropagation()}>
@@ -387,11 +448,21 @@
                 </div>
                 <div className="space-y-8 mb-6">
                   <div>
-                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em]">テーマ</p>
+                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em] flex items-center gap-2"><SunMoon size={14} /> テーマ</p>
                     <div className="flex gap-3 p-1.5 bg-zinc-100 dark:bg-black rounded-[20px]">
                       {['light', 'dark', 'system'].map(m => (
                         <button key={m} onClick={() => updateSettings({theme:m})} className={`flex-1 py-3 rounded-[14px] text-sm font-black transition-all ${settings.theme === m ? 'bg-white dark:bg-zinc-800 shadow-md scale-[1.02]' : 'text-zinc-500 opacity-60'}`} style={settings.theme === m ? {color: ACCENT_COLOR} : {}}>
                           {m === 'light' ? 'ライト' : m === 'dark' ? 'ダーク' : '自動'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-zinc-400 mb-3 uppercase tracking-[0.2em] flex items-center gap-2"><Type size={14} /> 文字サイズ</p>
+                    <div className="flex gap-3 p-1.5 bg-zinc-100 dark:bg-black rounded-[20px]">
+                      {['small', 'medium', 'large'].map(s => (
+                        <button key={s} onClick={() => updateSettings({fontSize:s})} className={`flex-1 py-3 rounded-[14px] text-sm font-black transition-all ${settings.fontSize === s ? 'bg-white dark:bg-zinc-800 shadow-md scale-[1.02]' : 'text-zinc-500 opacity-60'}`} style={settings.fontSize === s ? {color: ACCENT_COLOR} : {}}>
+                          {s === 'small' ? '小' : s === 'medium' ? '中' : '大'}
                         </button>
                       ))}
                     </div>
