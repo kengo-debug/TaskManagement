@@ -52,6 +52,12 @@
       /* ノッチ（セーフエリア）の余白を自動調整 */
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
+      
+      /* 画面全体を固定してスクロールさせない設定 */
+      height: 100dvh;
+      overflow: hidden;
+      margin: 0;
+      box-sizing: border-box;
     }
     /* htmlタグにdarkクラスが付与されたら背景をグレー（メニューと同じ#1C1C1E）にする */
     html.dark body { background-color: #1C1C1E; }
@@ -64,7 +70,7 @@
     }
   </style>
 </head>
-<body class="bg-black text-white touch-manipulation overflow-x-hidden">
+<body class="bg-black text-white touch-manipulation overflow-hidden">
   
   <div id="root">
     <div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #666; font-size: 14px;">
@@ -229,7 +235,6 @@
           setDragState({
             isDragging: true, draggedId: id, dragOverId: id, startY: e.clientY, currentY: e.clientY, dragItemHeight: itemHeight
           });
-          document.body.style.overflow = 'hidden';
         }, 500);
       };
 
@@ -261,7 +266,6 @@
         e.currentTarget.releasePointerCapture(e.pointerId);
         if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
         if (dragState.isDragging) {
-          document.body.style.overflow = '';
           if (dragState.dragOverId && dragState.dragOverId !== dragState.draggedId) {
             const oldIndex = displayItems.findIndex(i => i.id === dragState.draggedId);
             const newIndex = displayItems.findIndex(i => i.id === dragState.dragOverId);
@@ -313,8 +317,8 @@
       const fontSizeClass = settings.fontSize === 'small' ? 'text-base' : settings.fontSize === 'large' ? 'text-xl' : 'text-lg';
 
       return (
-        <div className={`min-h-screen transition-colors duration-300 flex flex-col items-center select-none overflow-x-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-black text-white'}`}>
-          <header className={`w-full px-4 pt-12 pb-4 flex justify-between items-center border-b sticky top-0 z-40 ${settings.theme === 'light' ? 'bg-white/90 border-zinc-200 shadow-sm' : 'bg-[#1C1C1E]/90 border-zinc-800'}`}>
+        <div className={`h-full w-full transition-colors duration-300 flex flex-col items-center select-none overflow-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-black text-white'}`}>
+          <header className={`w-full flex-shrink-0 px-4 pt-12 pb-4 flex justify-between items-center border-b z-40 ${settings.theme === 'light' ? 'bg-white border-zinc-200 shadow-sm' : 'bg-[#1C1C1E] border-zinc-800'}`}>
             <div className={`flex items-center px-4 py-1 rounded-full text-sm font-bold ${settings.theme === 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-800'}`} style={settings.theme !== 'light' ? {color: ACCENT_COLOR} : {}}>
               {completedCount} / {totalCount}件完了
             </div>
@@ -333,7 +337,7 @@
             </div>
           </header>
 
-          <main className="w-full px-2 mt-4">
+          <main className={`w-full flex-1 px-2 pt-4 pb-20 ${dragState.isDragging ? 'overflow-hidden touch-none' : 'overflow-y-auto'}`} style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className={`w-full rounded-[24px] overflow-hidden shadow-xl ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
               {displayItems.length === 0 && !isAdding && <div className="py-20 text-center text-zinc-400 text-sm font-medium italic">タスクがありません</div>}
               
