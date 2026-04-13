@@ -7,8 +7,8 @@
   <!-- iPhoneアプリ化＆ズーム防止設定 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <!-- 時刻の文字色を背景に合わせて自動調整させるため default に変更 -->
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <!-- 時刻の文字色やステータスバー背景を制御するため black-translucent に変更 -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#f4f4f5" id="theme-color-meta">
   
   <!-- iOSのSVGアイコン無視対策：裏側で自動的にPNGに変換して適用するスクリプト -->
@@ -64,8 +64,8 @@
       width: 100%;
     }
 
-    /* htmlタグにdarkクラスが付与されたら背景を黒にする（上部ステータスバーは theme-color で制御） */
-    html.dark body { background-color: #000; }
+    /* htmlタグにdarkクラスが付与されたら背景をグレー（ステータスバーの色）にする */
+    html.dark body { background-color: #1C1C1E; }
 
     * { -webkit-tap-highlight-color: transparent; }
     ::-webkit-scrollbar { display: none; }
@@ -324,7 +324,7 @@
       const fontSizeClass = settings.fontSize === 'small' ? 'text-lg' : settings.fontSize === 'large' ? 'text-2xl' : 'text-xl';
 
       return (
-        <div className={`h-full w-full transition-colors duration-300 flex flex-col items-center select-none overflow-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-black text-white'}`}>
+        <div className={`h-full w-full transition-colors duration-300 flex flex-col items-center select-none overflow-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-[#1C1C1E] text-white'}`}>
           <header 
             className={`w-full flex-shrink-0 px-4 pb-4 flex justify-between items-center border-b z-40 ${settings.theme === 'light' ? 'bg-white border-zinc-200 shadow-sm' : 'bg-[#1C1C1E] border-zinc-800'}`}
             style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}
@@ -348,7 +348,7 @@
           </header>
 
           <main 
-            className={`w-full flex-1 px-2 pt-4 ${dragState.isDragging ? 'overflow-hidden touch-none' : 'overflow-y-auto'}`} 
+            className={`w-full flex-1 min-h-0 px-2 pt-4 ${dragState.isDragging ? 'overflow-hidden touch-none' : 'overflow-y-auto'} ${settings.theme === 'light' ? 'bg-zinc-100' : 'bg-black'}`} 
             style={{ 
               WebkitOverflowScrolling: 'touch',
               paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)'
