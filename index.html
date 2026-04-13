@@ -7,8 +7,8 @@
   <!-- iPhoneアプリ化＆ズーム防止設定 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <!-- 時刻の文字色やステータスバー背景を制御するため black-translucent に変更 -->
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- 時刻のステータスバー背景をtheme-colorで確実に制御するため default に設定 -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#f4f4f5" id="theme-color-meta">
   
   <!-- iOSのSVGアイコン無視対策：裏側で自動的にPNGに変換して適用するスクリプト -->
@@ -45,6 +45,10 @@
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
   <style>
+    html {
+      background-color: #f4f4f5;
+    }
+    
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #f4f4f5; /* ライトモードの背景色をデフォルトに */
@@ -57,6 +61,8 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-user-select: none;
+      user-select: none;
     }
     
     #root {
@@ -64,8 +70,10 @@
       width: 100%;
     }
 
-    /* htmlタグにdarkクラスが付与されたら背景を黒（画面裏地）にする */
-    html.dark body { background-color: #000000; }
+    /* htmlとbodyの両方を完全に黒で塗りつぶし、下部の謎のグレーを消し去る */
+    html.dark, html.dark body { 
+      background-color: #000000 !important; 
+    }
 
     * { -webkit-tap-highlight-color: transparent; }
     ::-webkit-scrollbar { display: none; }
@@ -172,7 +180,6 @@
       const [showSettings, setShowSettings] = useState(false);
 
       const menuRef = useRef(null);
-      const ITEM_HEIGHT = 65; 
 
       useEffect(() => {
         const isDark = settings.theme === 'system' 
@@ -183,7 +190,7 @@
         // ライト/ダークテーマに合わせてステータスバーの色を変更
         const metaThemeColor = document.getElementById('theme-color-meta');
         if (metaThemeColor) {
-          // ダーク時はメニューと同じグレー(#1C1C1E)に統一
+          // ダーク時はメニューと同じグレー(#1C1C1E)に確実に統一
           metaThemeColor.setAttribute('content', isDark ? '#1C1C1E' : '#f4f4f5');
         }
       }, [settings.theme]);
@@ -320,11 +327,11 @@
         setShowMenu(false);
       };
 
-      // 3段階のフォントサイズを全体的に大きく変更 (small->text-lg, medium->text-xl, large->text-2xl)
+      // 3段階のフォントサイズ
       const fontSizeClass = settings.fontSize === 'small' ? 'text-lg' : settings.fontSize === 'large' ? 'text-2xl' : 'text-xl';
 
       return (
-        <div className={`h-full w-full transition-colors duration-300 flex flex-col items-center select-none overflow-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-black text-white'}`}>
+        <div className={`h-full w-full transition-colors duration-300 flex flex-col items-center select-none overflow-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-[#000000] text-white'}`}>
           <header 
             className={`w-full flex-shrink-0 px-4 pb-4 flex justify-between items-center border-b z-40 ${settings.theme === 'light' ? 'bg-white border-zinc-200 shadow-sm' : 'bg-[#1C1C1E] border-zinc-800'}`}
             style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}
@@ -348,34 +355,31 @@
           </header>
 
           <main 
-            className={`w-full flex-1 min-h-0 ${dragState.isDragging ? 'overflow-hidden touch-none' : 'overflow-y-auto'} ${settings.theme === 'light' ? 'bg-zinc-100' : 'bg-black'}`} 
+            className={`w-full flex-1 min-h-0 overflow-y-auto ${dragState.isDragging ? 'touch-none' : ''} ${settings.theme === 'light' ? 'bg-zinc-100' : 'bg-[#000000]'}`} 
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
-            <div className="w-full px-2 pt-4 flex flex-col" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>
+            <div className="w-full px-2 pt-4 flex flex-col">
               <div className={`w-full rounded-[24px] overflow-hidden shadow-xl flex-shrink-0 ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
                 {displayItems.length === 0 && !isAdding && <div className="py-20 text-center text-zinc-400 text-sm font-medium italic">タスクがありません</div>}
                 
                 {(() => {
-                  // ドロップ時の位置を計算するために、ドラッグ中の項目のインデックスを取得
                   const draggedIndex = displayItems.findIndex(i => i.id === dragState.draggedId);
                   const dragOverIndex = displayItems.findIndex(i => i.id === dragState.dragOverId);
 
                   return displayItems.map((item, index) => {
                     const isDragged = dragState.draggedId === item.id;
                     
-                    // ドロップ先のスペースを空けるための計算（リアルタイムで項目をずらす処理）
                     let shiftY = 0;
                     if (dragState.isDragging && !isDragged) {
                       if (draggedIndex < dragOverIndex && index > draggedIndex && index <= dragOverIndex) {
-                        shiftY = -dragState.dragItemHeight; // 上にスライドしてスペースを作る
+                        shiftY = -dragState.dragItemHeight; 
                       } else if (draggedIndex > dragOverIndex && index >= dragOverIndex && index < draggedIndex) {
-                        shiftY = dragState.dragItemHeight; // 下にスライドしてスペースを作る
+                        shiftY = dragState.dragItemHeight; 
                       }
                     }
 
                     const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -80 : 80) : 0;
                     
-                    // めり込みを防ぐため、Y軸の移動（並べ替え）は外側のラッパーに適用する
                     let wrapperStyle = {};
                     let innerStyle = {};
 
@@ -447,11 +451,15 @@
               </div>
             
               {!isAdding && (
-                <button onClick={() => setIsAdding(true)} className={`w-full flex-shrink-0 mt-6 mb-10 px-5 py-5 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}>
+                <button onClick={() => setIsAdding(true)} className={`w-full flex-shrink-0 mt-6 px-5 py-5 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}>
                   <Plus size={28} strokeWidth={3} />
                   <span className="text-xl">新しいタスクを追加</span>
                 </button>
               )}
+
+              {/* ▼ココが一番重要！物理的に絶対に確保される巨大な空白スペーサー▼ */}
+              <div className="w-full flex-shrink-0" style={{ height: 'calc(env(safe-area-inset-bottom) + 160px)' }}></div>
+
             </div>
           </main>
 
