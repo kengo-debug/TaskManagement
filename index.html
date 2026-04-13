@@ -7,9 +7,9 @@
   <!-- iPhoneアプリ化＆ズーム防止設定 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <!-- 時刻のステータスバー背景をtheme-colorで確実に制御するため default に設定 -->
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="#f4f4f5" id="theme-color-meta">
+  <!-- 時刻のステータスバー背景を確実に制御するため black-translucent に設定 -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1C1C1E" id="theme-color-meta">
   
   <!-- iOSのSVGアイコン無視対策：裏側で自動的にPNGに変換して適用するスクリプト -->
   <script>
@@ -45,33 +45,30 @@
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
   <style>
+    /* トップに引っ張った時のバウンス色はヘッダーに合わせてグレーに */
     html {
       background-color: #f4f4f5;
+    }
+    html.dark { 
+      background-color: #1C1C1E !important; 
     }
     
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f4f4f5; /* ライトモードの背景色をデフォルトに */
+      background-color: #f4f4f5; /* ライトモードの背景色 */
       transition: background-color 0.3s;
       
-      /* 画面全体を固定してスクロールさせない設定 */
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      overflow: hidden;
+      /* 固定をやめて自然なスクロールに任せる（iOSのバグ回避） */
       margin: 0;
       padding: 0;
       box-sizing: border-box;
       -webkit-user-select: none;
       user-select: none;
-    }
-    
-    #root {
-      height: 100%;
-      width: 100%;
+      min-height: 100vh;
     }
 
-    /* htmlとbodyの両方を完全に黒で塗りつぶし、下部の謎のグレーを消し去る */
-    html.dark, html.dark body { 
+    /* 画面のベース（タスク一覧の裏地）は真っ黒にする */
+    html.dark body { 
       background-color: #000000 !important; 
     }
 
@@ -83,7 +80,7 @@
     }
   </style>
 </head>
-<body class="bg-black text-white touch-manipulation overflow-hidden">
+<body class="bg-black text-white touch-manipulation">
   
   <div id="root">
     <div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #666; font-size: 14px;">
@@ -187,10 +184,9 @@
           : settings.theme === 'dark';
         document.documentElement.classList.toggle('dark', isDark);
         
-        // ライト/ダークテーマに合わせてステータスバーの色を変更
+        // メタタグの色更新
         const metaThemeColor = document.getElementById('theme-color-meta');
         if (metaThemeColor) {
-          // ダーク時はメニューと同じグレー(#1C1C1E)に確実に統一
           metaThemeColor.setAttribute('content', isDark ? '#1C1C1E' : '#f4f4f5');
         }
       }, [settings.theme]);
@@ -239,7 +235,6 @@
         setTouchStart(e.clientX);
         setTouchStartY(e.clientY);
         
-        // 掴んだ要素の実際の高さを取得し、移動量の計算に利用する
         const rect = e.currentTarget.getBoundingClientRect();
         const itemHeight = rect.height || 65;
 
@@ -248,6 +243,8 @@
           setDragState({
             isDragging: true, draggedId: id, dragOverId: id, startY: e.clientY, currentY: e.clientY, dragItemHeight: itemHeight
           });
+          // ドラッグ中は画面スクロールをロックする
+          document.body.style.overflow = 'hidden';
         }, 500);
       };
 
@@ -278,7 +275,11 @@
       const handlePointerUp = (e, id, isCompleted) => {
         e.currentTarget.releasePointerCapture(e.pointerId);
         if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+        
         if (dragState.isDragging) {
+          // ドラッグ終了でスクロールロック解除
+          document.body.style.overflow = '';
+          
           if (dragState.dragOverId && dragState.dragOverId !== dragState.draggedId) {
             const oldIndex = displayItems.findIndex(i => i.id === dragState.draggedId);
             const newIndex = displayItems.findIndex(i => i.id === dragState.dragOverId);
@@ -290,17 +291,16 @@
           setDragState({ isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0, dragItemHeight: 65 });
           return;
         }
+        
         if (touchStart === null) return;
         const distance = touchStart - (touchEnd || touchStart);
         if (Math.abs(distance) < 10) {
           if (swipingId === id) { setSwipingId(null); setSwipeType(null); }
           else if (!isCompleted && !e.target.closest('button')) setEditingId(id);
         } else if (distance > 50) { 
-          // ピン留め状態から左スワイプした時は元の状態に戻す
           if (swipingId === id && swipeType === 'pin') { setSwipingId(null); setSwipeType(null); }
           else { setSwipingId(id); setSwipeType('delete'); }
         } else if (distance < -50) {
-          // 削除状態から右スワイプした時は元の状態に戻す
           if (swipingId === id && swipeType === 'delete') { setSwipingId(null); setSwipeType(null); }
           else { setSwipingId(id); setSwipeType('pin'); }
         }
@@ -327,14 +327,15 @@
         setShowMenu(false);
       };
 
-      // 3段階のフォントサイズ
       const fontSizeClass = settings.fontSize === 'small' ? 'text-lg' : settings.fontSize === 'large' ? 'text-2xl' : 'text-xl';
 
       return (
-        <div className={`h-full w-full transition-colors duration-300 flex flex-col items-center select-none overflow-hidden ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-[#000000] text-white'}`}>
+        <div className={`min-h-screen w-full transition-colors duration-300 flex flex-col items-center select-none ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-[#000000] text-white'}`}>
+          
+          {/* ヘッダーをstickyにして画面上部に吸着させる */}
           <header 
-            className={`w-full flex-shrink-0 px-4 pb-4 flex justify-between items-center border-b z-40 ${settings.theme === 'light' ? 'bg-white border-zinc-200 shadow-sm' : 'bg-[#1C1C1E] border-zinc-800'}`}
-            style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}
+            className={`w-full sticky top-0 z-50 px-4 pb-4 flex justify-between items-center border-b ${settings.theme === 'light' ? 'bg-white border-zinc-200 shadow-sm' : 'bg-[#1C1C1E] border-zinc-800'}`}
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}
           >
             <div className={`flex items-center px-4 py-1 rounded-full text-sm font-bold ${settings.theme === 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-800'}`} style={settings.theme !== 'light' ? {color: ACCENT_COLOR} : {}}>
               {completedCount} / {totalCount}件完了
@@ -344,7 +345,7 @@
               <button onClick={copyListToClipboard} className="p-2 active:opacity-50" style={{color: ACCENT_COLOR}}><Share2 size={24} /></button>
               <button onClick={() => setShowMenu(!showMenu)} className="p-2 active:opacity-50" style={{color: ACCENT_COLOR}}><MoreHorizontal size={24} /></button>
               {showMenu && (
-                <div className={`absolute right-4 top-12 w-64 border rounded-2xl shadow-2xl z-50 overflow-hidden ${settings.theme === 'light' ? 'bg-white border-zinc-200 text-black' : 'bg-[#1C1C1E] border-zinc-800 text-white'}`}>
+                <div className={`absolute right-4 top-[calc(100%-8px)] w-64 border rounded-2xl shadow-2xl z-50 overflow-hidden ${settings.theme === 'light' ? 'bg-white border-zinc-200 text-black' : 'bg-[#1C1C1E] border-zinc-800 text-white'}`}>
                   <button onClick={() => { setItems(items.filter(i => !i.completed)); saveData(items.filter(i => !i.completed)); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>完了済みを削除</span><CheckCircle size={18} className="text-zinc-400" /></button>
                   <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm text-[#FF3B30] flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span className="font-bold">全削除</span><Trash2 size={18} /></button>
                   <button onClick={() => { setShowManual(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>マニュアル</span><BookOpen size={18} style={{color: ACCENT_COLOR}} /></button>
@@ -354,113 +355,108 @@
             </div>
           </header>
 
-          <main 
-            className={`w-full flex-1 min-h-0 overflow-y-auto ${dragState.isDragging ? 'touch-none' : ''} ${settings.theme === 'light' ? 'bg-zinc-100' : 'bg-[#000000]'}`} 
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            <div className="w-full px-2 pt-4 flex flex-col">
-              <div className={`w-full rounded-[24px] overflow-hidden shadow-xl flex-shrink-0 ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
-                {displayItems.length === 0 && !isAdding && <div className="py-20 text-center text-zinc-400 text-sm font-medium italic">タスクがありません</div>}
-                
-                {(() => {
-                  const draggedIndex = displayItems.findIndex(i => i.id === dragState.draggedId);
-                  const dragOverIndex = displayItems.findIndex(i => i.id === dragState.dragOverId);
+          <main className="w-full flex-1 px-2 pt-4 flex flex-col">
+            <div className={`w-full rounded-[24px] overflow-hidden shadow-xl flex-shrink-0 ${settings.theme === 'light' ? 'bg-white border border-zinc-100' : 'bg-[#1C1C1E]'}`}>
+              {displayItems.length === 0 && !isAdding && <div className="py-20 text-center text-zinc-400 text-sm font-medium italic">タスクがありません</div>}
+              
+              {(() => {
+                const draggedIndex = displayItems.findIndex(i => i.id === dragState.draggedId);
+                const dragOverIndex = displayItems.findIndex(i => i.id === dragState.dragOverId);
 
-                  return displayItems.map((item, index) => {
-                    const isDragged = dragState.draggedId === item.id;
-                    
-                    let shiftY = 0;
-                    if (dragState.isDragging && !isDragged) {
-                      if (draggedIndex < dragOverIndex && index > draggedIndex && index <= dragOverIndex) {
-                        shiftY = -dragState.dragItemHeight; 
-                      } else if (draggedIndex > dragOverIndex && index >= dragOverIndex && index < draggedIndex) {
-                        shiftY = dragState.dragItemHeight; 
-                      }
+                return displayItems.map((item, index) => {
+                  const isDragged = dragState.draggedId === item.id;
+                  
+                  let shiftY = 0;
+                  if (dragState.isDragging && !isDragged) {
+                    if (draggedIndex < dragOverIndex && index > draggedIndex && index <= dragOverIndex) {
+                      shiftY = -dragState.dragItemHeight; 
+                    } else if (draggedIndex > dragOverIndex && index >= dragOverIndex && index < draggedIndex) {
+                      shiftY = dragState.dragItemHeight; 
                     }
+                  }
 
-                    const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -80 : 80) : 0;
-                    
-                    let wrapperStyle = {};
-                    let innerStyle = {};
+                  const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -80 : 80) : 0;
+                  
+                  let wrapperStyle = {};
+                  let innerStyle = {};
 
-                    if (isDragged) {
-                      wrapperStyle = {
-                        transform: `translateY(${dragState.currentY - dragState.startY}px)`,
-                        zIndex: 50,
-                        position: 'relative',
-                        transition: 'none'
-                      };
-                      innerStyle = {
-                        transform: `translateX(${swipeX}px) scale(1.02)`,
-                        boxShadow: settings.theme === 'light' ? '0 10px 25px rgba(0,0,0,0.15)' : '0 10px 25px rgba(0,0,0,0.8)',
-                        backgroundColor: settings.theme === 'light' ? '#ffffff' : '#222222',
-                        transition: 'none'
-                      };
-                    } else {
-                      wrapperStyle = {
-                        transform: `translateY(${shiftY}px)`,
-                        transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
-                        zIndex: 1,
-                        position: 'relative'
-                      };
-                      innerStyle = {
-                        transform: `translateX(${swipeX}px)`,
-                        transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
-                      };
-                    }
+                  if (isDragged) {
+                    wrapperStyle = {
+                      transform: `translateY(${dragState.currentY - dragState.startY}px)`,
+                      zIndex: 50,
+                      position: 'relative',
+                      transition: 'none'
+                    };
+                    innerStyle = {
+                      transform: `translateX(${swipeX}px) scale(1.02)`,
+                      boxShadow: settings.theme === 'light' ? '0 10px 25px rgba(0,0,0,0.15)' : '0 10px 25px rgba(0,0,0,0.8)',
+                      backgroundColor: settings.theme === 'light' ? '#ffffff' : '#222222',
+                      transition: 'none'
+                    };
+                  } else {
+                    wrapperStyle = {
+                      transform: `translateY(${shiftY}px)`,
+                      transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                      zIndex: 1,
+                      position: 'relative'
+                    };
+                    innerStyle = {
+                      transform: `translateX(${swipeX}px)`,
+                      transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                    };
+                  }
 
-                    return (
+                  return (
+                    <div 
+                      key={item.id} 
+                      className={`relative touch-none ${isDragged ? '' : 'overflow-hidden'}`}
+                      style={wrapperStyle}
+                    >
+                      <button onClick={() => { setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300 overflow-hidden" style={{ width: swipeX > 0 ? '80px' : '0' }}>{item.pinned ? <PinOff size={24} /> : <Pin size={24} />}</button>
+                      <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300 overflow-hidden" style={{ width: swipeX < 0 ? '80px' : '0' }}><Trash2 size={24} /></button>
+                      
                       <div 
-                        key={item.id} 
-                        className={`relative touch-none ${isDragged ? '' : 'overflow-hidden'}`}
-                        style={wrapperStyle}
+                        onPointerDown={e => handlePointerDown(e, item.id)} 
+                        onPointerMove={handlePointerMove} 
+                        onPointerUp={e => handlePointerUp(e, item.id, item.completed)}
+                        onPointerCancel={e => handlePointerUp(e, item.id, item.completed)}
+                        className={`flex items-start px-5 py-4 cursor-pointer ${index !== displayItems.length - 1 ? 'border-b' : ''} ${settings.theme === 'light' ? 'border-zinc-100' : 'border-zinc-800'} ${isDragged ? 'rounded-xl' : ''}`}
+                        style={innerStyle}
                       >
-                        <button onClick={() => { setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300 overflow-hidden" style={{ width: swipeX > 0 ? '80px' : '0' }}>{item.pinned ? <PinOff size={24} /> : <Pin size={24} />}</button>
-                        <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300 overflow-hidden" style={{ width: swipeX < 0 ? '80px' : '0' }}><Trash2 size={24} /></button>
-                        
-                        <div 
-                          onPointerDown={e => handlePointerDown(e, item.id)} 
-                          onPointerMove={handlePointerMove} 
-                          onPointerUp={e => handlePointerUp(e, item.id, item.completed)}
-                          onPointerCancel={e => handlePointerUp(e, item.id, item.completed)}
-                          className={`flex items-start px-5 py-4 cursor-pointer ${index !== displayItems.length - 1 ? 'border-b' : ''} ${settings.theme === 'light' ? 'border-zinc-100' : 'border-zinc-800'} ${isDragged ? 'rounded-xl' : ''}`}
-                          style={innerStyle}
-                        >
-                          <button onClick={e => toggleComplete(e, item.id)} className="mr-4 mt-1 flex-shrink-0">
-                            {item.completed ? (
-                              <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md bg-sunset">
-                                <CheckCircle size={18} className="text-white" />
-                              </div>
-                            ) : (
-                              <div className={`w-7 h-7 rounded-lg border-2 ${settings.theme === 'light' ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-600'}`} />
-                            )}
-                          </button>
-                          {editingId === item.id ? (
-                            <input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} text-orange-600 dark:text-orange-400 font-bold`} value={item.text} onChange={e => setItems(items.map(i => i.id === item.id ? {...i, text: e.target.value} : i))} onBlur={() => { saveData(items); setEditingId(null); }} onKeyDown={e => e.key === 'Enter' && setEditingId(null)} />
+                        <button onClick={e => toggleComplete(e, item.id)} className="mr-4 mt-1 flex-shrink-0">
+                          {item.completed ? (
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md bg-sunset">
+                              <CheckCircle size={18} className="text-white" />
+                            </div>
                           ) : (
-                            <span className={`flex-1 break-words transition-all ${fontSizeClass} ${item.completed ? 'text-zinc-400 line-through opacity-50' : (settings.theme === 'light' ? 'text-zinc-900 font-medium' : 'text-white')}`}>{item.text}</span>
+                            <div className={`w-7 h-7 rounded-lg border-2 ${settings.theme === 'light' ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-600'}`} />
                           )}
-                          {item.pinned && <div className="ml-3 mt-1"><Pin size={20} className="text-[#FF9F0A] fill-[#FF9F0A]" /></div>}
-                        </div>
+                        </button>
+                        {editingId === item.id ? (
+                          <input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} text-orange-600 dark:text-orange-400 font-bold`} value={item.text} onChange={e => setItems(items.map(i => i.id === item.id ? {...i, text: e.target.value} : i))} onBlur={() => { saveData(items); setEditingId(null); }} onKeyDown={e => e.key === 'Enter' && setEditingId(null)} />
+                        ) : (
+                          <span className={`flex-1 break-words transition-all ${fontSizeClass} ${item.completed ? 'text-zinc-400 line-through opacity-50' : (settings.theme === 'light' ? 'text-zinc-900 font-medium' : 'text-white')}`}>{item.text}</span>
+                        )}
+                        {item.pinned && <div className="ml-3 mt-1"><Pin size={20} className="text-[#FF9F0A] fill-[#FF9F0A]" /></div>}
                       </div>
-                    );
-                  });
-                })()}
-                
-                {isAdding && <div className={`flex items-center px-5 py-4 ${settings.theme === 'light' ? 'bg-orange-50/50' : 'bg-zinc-800/30'}`}><div className="mr-4"><div className="w-7 h-7 rounded-lg border-2 animate-pulse" style={{borderColor: ACCENT_COLOR}} /></div><input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} font-bold`} value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitNewItem()} onBlur={submitNewItem} placeholder="入力..." /></div>}
-              </div>
-            
-              {!isAdding && (
-                <button onClick={() => setIsAdding(true)} className={`w-full flex-shrink-0 mt-6 px-5 py-5 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}>
-                  <Plus size={28} strokeWidth={3} />
-                  <span className="text-xl">新しいタスクを追加</span>
-                </button>
-              )}
-
-              {/* ▼ココが一番重要！物理的に絶対に確保される巨大な空白スペーサー▼ */}
-              <div className="w-full flex-shrink-0" style={{ height: 'calc(env(safe-area-inset-bottom) + 160px)' }}></div>
-
+                    </div>
+                  );
+                });
+              })()}
+              
+              {isAdding && <div className={`flex items-center px-5 py-4 ${settings.theme === 'light' ? 'bg-orange-50/50' : 'bg-zinc-800/30'}`}><div className="mr-4"><div className="w-7 h-7 rounded-lg border-2 animate-pulse" style={{borderColor: ACCENT_COLOR}} /></div><input autoFocus className={`bg-transparent outline-none w-full ${fontSizeClass} font-bold`} value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitNewItem()} onBlur={submitNewItem} placeholder="入力..." /></div>}
             </div>
+          
+            {!isAdding && (
+              <button onClick={() => setIsAdding(true)} className={`w-full flex-shrink-0 mt-6 px-5 py-5 flex items-center justify-center gap-4 rounded-[24px] shadow-2xl transition-all active:scale-[0.96] active:brightness-90 bg-sunset text-white font-black`}>
+                <Plus size={28} strokeWidth={3} />
+                <span className="text-xl">新しいタスクを追加</span>
+              </button>
+            )}
+
+            {/* 自然スクロール用にたっぷりの余白を確保 */}
+            <div className="w-full flex-shrink-0" style={{ height: 'calc(env(safe-area-inset-bottom) + 80px)' }}></div>
+
           </main>
 
           {/* マニュアル画面 */}
