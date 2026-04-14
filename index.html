@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="タスク管理">
   <!-- 時刻のステータスバー背景を確実に制御するため black-translucent に設定 -->
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#1C1C1E" id="theme-color-meta">
+  <meta name="theme-color" content="#000000" id="theme-color-meta">
   
   <!-- iOSのSVGアイコン無視対策：裏側で自動的にPNGに変換して適用するスクリプト -->
   <script>
@@ -52,7 +52,7 @@
       background-color: #f4f4f5;
     }
     html.dark { 
-      background-color: #1C1C1E !important; 
+      background-color: #000000 !important; 
     }
     
     body { 
@@ -190,7 +190,7 @@
         // メタタグの色更新
         const metaThemeColor = document.getElementById('theme-color-meta');
         if (metaThemeColor) {
-          metaThemeColor.setAttribute('content', isDark ? '#1C1C1E' : '#f4f4f5');
+          metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f4f4f5');
         }
       }, [settings.theme]);
 
