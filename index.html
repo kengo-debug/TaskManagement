@@ -57,6 +57,7 @@
     
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f4f5;
       
       /* 画面全体を完全に固定して、アプリ風のレイアウトを実現 */
       position: fixed;
@@ -161,6 +162,7 @@
       const [touchEnd, setTouchEnd] = useState(null);
       const [swipingId, setSwipingId] = useState(null);
       const [swipeType, setSwipeType] = useState(null); 
+      const [deletingId, setDeletingId] = useState(null);
       const [isAdding, setIsAdding] = useState(false);
       const [newItemText, setNewItemText] = useState('');
       const [showMenu, setShowMenu] = useState(false);
@@ -192,6 +194,7 @@
         if (metaThemeColor) {
           metaThemeColor.setAttribute('content', isDark ? '#000000' : '#f4f4f5');
         }
+        document.body.style.backgroundColor = isDark ? '#000000' : '#f4f4f5';
       }, [settings.theme]);
 
       useEffect(() => {
@@ -206,6 +209,26 @@
         const currentSettings = newConfig || settings;
         setCachedData('memoapp_items', newItems);
         setCachedData('memoapp_settings', currentSettings);
+      };
+
+      const resetSwipe = () => {
+        setSwipingId(null);
+        setSwipeType(null);
+      };
+
+      const updateItems = (newItems) => {
+        setItems(newItems);
+        saveData(newItems);
+      };
+
+      const deleteItem = (id) => {
+        if (deletingId !== null) return;
+        resetSwipe();
+        setDeletingId(id);
+        setTimeout(() => {
+          updateItems(items.filter(i => i.id !== id));
+          setDeletingId(null);
+        }, 460);
       };
 
       const displayItems = useMemo(() => {
@@ -223,7 +246,7 @@
         e.stopPropagation();
         if (navigator.vibrate) navigator.vibrate(10);
         const newItems = items.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
-        setItems(newItems); saveData(newItems);
+        updateItems(newItems);
       };
 
       const handlePointerDown = (e, id) => {
@@ -296,7 +319,7 @@
             const newDisplayItems = [...displayItems];
             const [removed] = newDisplayItems.splice(oldIndex, 1);
             newDisplayItems.splice(newIndex, 0, removed);
-            setItems(newDisplayItems); saveData(newDisplayItems);
+            updateItems(newDisplayItems);
           }
           setDragState({ isDragging: false, draggedId: null, dragOverId: null, startY: 0, currentY: 0, dragItemHeight: 65 });
           return;
@@ -308,10 +331,12 @@
           if (swipingId === id) { setSwipingId(null); setSwipeType(null); }
           else if (!isCompleted && !e.target.closest('button')) setEditingId(id);
         } else if (distance > 50) { 
-          if (swipingId === id && swipeType === 'pin') { setSwipingId(null); setSwipeType(null); }
+          if (swipingId === id && swipeType === 'delete') deleteItem(id);
+          else if (swipingId === id && swipeType === 'pin') resetSwipe();
           else { setSwipingId(id); setSwipeType('delete'); }
         } else if (distance < -50) {
-          if (swipingId === id && swipeType === 'delete') { setSwipingId(null); setSwipeType(null); }
+          if (swipingId === id && swipeType === 'pin') resetSwipe();
+          else if (swipingId === id && swipeType === 'delete') resetSwipe();
           else { setSwipingId(id); setSwipeType('pin'); }
         }
         setTouchStart(null); setTouchEnd(null); setTouchStartY(null);
@@ -321,7 +346,7 @@
         const text = newItemText.trim();
         if (!text) { setIsAdding(false); return; }
         const newItems = [...items, { id: Date.now(), text, completed: false, pinned: false }];
-        setItems(newItems); setNewItemText(''); setIsAdding(false); saveData(newItems);
+        updateItems(newItems); setNewItemText(''); setIsAdding(false);
       };
 
       const updateSettings = (newSettings) => {
@@ -340,7 +365,7 @@
       const fontSizeClass = settings.fontSize === 'small' ? 'text-lg' : settings.fontSize === 'large' ? 'text-2xl' : 'text-xl';
 
       return (
-        <div className={`h-full w-full flex flex-col overflow-hidden transition-colors duration-300 select-none ${settings.theme === 'light' ? 'bg-zinc-100 text-black' : 'bg-[#000000] text-white'}`}>
+        <div className={`h-full w-full flex flex-col overflow-hidden transition-colors duration-300 select-none ${settings.theme === 'light' ? 'bg-[#f4f4f5] text-black' : 'bg-[#000000] text-white'}`}>
           
           {/* 上部ヘッダー（完全に固定） */}
           <header 
@@ -356,7 +381,7 @@
               <button onClick={() => setShowMenu(!showMenu)} className="p-2 active:opacity-50" style={{color: ACCENT_COLOR}}><MoreHorizontal size={24} /></button>
               {showMenu && (
                 <div className={`absolute right-4 top-[calc(env(safe-area-inset-top)+60px)] w-64 border rounded-2xl shadow-2xl z-50 overflow-hidden ${settings.theme === 'light' ? 'bg-white border-zinc-200 text-black' : 'bg-[#1C1C1E] border-zinc-800 text-white'}`}>
-                  <button onClick={() => { setItems(items.filter(i => !i.completed)); saveData(items.filter(i => !i.completed)); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>完了済みを削除</span><CheckCircle size={18} className="text-zinc-400" /></button>
+                  <button onClick={() => { resetSwipe(); updateItems(items.filter(i => !i.completed)); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>完了済みを削除</span><CheckCircle size={18} className="text-zinc-400" /></button>
                   <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm text-[#FF3B30] flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span className="font-bold">全削除</span><Trash2 size={18} /></button>
                   <button onClick={() => { setShowManual(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between border-b hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>マニュアル</span><BookOpen size={18} style={{color: ACCENT_COLOR}} /></button>
                   <button onClick={() => { setShowSettings(true); setShowMenu(false); }} className="w-full px-4 py-4 text-left text-sm flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800"><span>設定</span><Settings size={18} className="text-zinc-400" /></button>
@@ -377,6 +402,7 @@
 
                   return displayItems.map((item, index) => {
                     const isDragged = dragState.draggedId === item.id;
+                    const isDeleting = deletingId === item.id;
                     
                     let shiftY = 0;
                     if (dragState.isDragging && !isDragged) {
@@ -387,12 +413,27 @@
                       }
                     }
 
-                    const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -80 : 80) : 0;
+                    const swipeX = swipingId === item.id ? (swipeType === 'delete' ? -56 : 80) : 0;
+                    const isDeleteOpen = swipeX < 0;
+                    const itemContentX = swipeX;
+                    const contentPaddingRight = isDeleteOpen ? '124px' : '';
                     
                     let wrapperStyle = {};
                     let innerStyle = {};
 
-                    if (isDragged) {
+                    if (isDeleting) {
+                      wrapperStyle = {
+                        transform: 'translateX(-120%)',
+                        opacity: 0,
+                        zIndex: 20,
+                        position: 'relative',
+                        transition: 'transform 0.46s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.46s ease'
+                      };
+                      innerStyle = {
+                        transform: 'translateX(0)',
+                        transition: 'none'
+                      };
+                    } else if (isDragged) {
                       wrapperStyle = {
                         transform: `translateY(${dragState.currentY - dragState.startY}px)`,
                         zIndex: 50,
@@ -400,7 +441,7 @@
                         transition: 'none'
                       };
                       innerStyle = {
-                        transform: `translateX(${swipeX}px) scale(1.02)`,
+                        transform: `translateX(${itemContentX}px) scale(1.02)`,
                         boxShadow: settings.theme === 'light' ? '0 10px 25px rgba(0,0,0,0.15)' : '0 10px 25px rgba(0,0,0,0.8)',
                         backgroundColor: settings.theme === 'light' ? '#ffffff' : '#222222',
                         transition: 'none'
@@ -413,7 +454,7 @@
                         position: 'relative'
                       };
                       innerStyle = {
-                        transform: `translateX(${swipeX}px)`,
+                        transform: `translateX(${itemContentX}px)`,
                         transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
                       };
                     }
@@ -424,16 +465,24 @@
                         className={`relative ${isDragged ? '' : 'overflow-hidden'}`}
                         style={wrapperStyle}
                       >
-                        <button onClick={() => { setItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); saveData(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); setSwipingId(null); }} className="absolute left-0 top-0 bottom-0 bg-[#FF9F0A] text-white flex items-center justify-center transition-all duration-300 overflow-hidden" style={{ width: swipeX > 0 ? '80px' : '0' }}>{item.pinned ? <PinOff size={24} /> : <Pin size={24} />}</button>
-                        <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); saveData(items.filter(i => i.id !== item.id)); setSwipingId(null); }} className="absolute right-0 top-0 bottom-0 bg-[#FF3B30] text-white flex items-center justify-center transition-all duration-300 overflow-hidden" style={{ width: swipeX < 0 ? '80px' : '0' }}><Trash2 size={24} /></button>
+                        {swipeX > 0 && (
+                          <button onClick={() => { updateItems(items.map(i => i.id === item.id ? {...i, pinned: !i.pinned} : i)); resetSwipe(); }} className="absolute left-0 top-0 bottom-0 w-20 bg-[#FF9F0A] text-white flex items-center justify-center overflow-hidden">
+                            {item.pinned ? <PinOff size={24} /> : <Pin size={24} />}
+                          </button>
+                        )}
+                        {isDeleteOpen && (
+                          <button onClick={() => deleteItem(item.id)} className="absolute right-0 top-0 bottom-0 w-20 bg-[#FF3B30] text-white flex items-center justify-center overflow-hidden z-10">
+                            <Trash2 size={24} />
+                          </button>
+                        )}
                         
                         <div 
                           onPointerDown={e => handlePointerDown(e, item.id)} 
                           onPointerMove={handlePointerMove} 
                           onPointerUp={e => handlePointerUp(e, item.id, item.completed)}
                           onPointerCancel={e => handlePointerUp(e, item.id, item.completed)}
-                          className={`flex items-start px-5 py-4 cursor-pointer ${index !== displayItems.length - 1 ? 'border-b' : ''} ${settings.theme === 'light' ? 'border-zinc-100' : 'border-zinc-800'} ${isDragged ? 'rounded-xl' : ''}`}
-                          style={innerStyle}
+                          className={`flex items-start px-5 py-4 cursor-pointer ${settings.theme === 'light' ? 'bg-white border-zinc-100' : 'bg-[#1C1C1E] border-zinc-800'} ${index !== displayItems.length - 1 ? 'border-b' : ''} ${isDragged ? 'rounded-xl' : ''}`}
+                          style={{ ...innerStyle, paddingRight: contentPaddingRight }}
                         >
                           <button onClick={e => toggleComplete(e, item.id)} className="mr-4 mt-1 flex-shrink-0">
                             {item.completed ? (
@@ -469,7 +518,7 @@
 
           {/* 下部固定の追加ボタンエリア */}
           {!isAdding && (
-            <div className={`flex-shrink-0 w-full px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)] border-t ${settings.theme === 'light' ? 'bg-zinc-100 border-zinc-200' : 'bg-[#000000] border-zinc-900'}`}>
+            <div className={`flex-shrink-0 w-full px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+4px)] border-t ${settings.theme === 'light' ? 'bg-[#f4f4f5] border-zinc-200' : 'bg-[#000000] border-zinc-900'}`}>
               <button onClick={() => {
                 setIsAdding(true);
                 // 入力欄が出た瞬間に一番下まで自動でスクロールさせる
@@ -605,7 +654,7 @@
                 </div>
                 <h3 className="text-xl font-black mb-4 text-zinc-900 dark:text-white">すべて削除しますか？</h3>
                 <div className="flex flex-col gap-3">
-                  <button onClick={() => {setItems([]); saveData([]); setShowDeleteConfirm(false);}} className="w-full py-4 bg-red-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-red-500/30">削除する</button>
+                  <button onClick={() => {resetSwipe(); updateItems([]); setShowDeleteConfirm(false);}} className="w-full py-4 bg-red-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-red-500/30">削除する</button>
                   <button onClick={() => setShowDeleteConfirm(false)} className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 rounded-2xl font-bold">キャンセル</button>
                 </div>
               </div>
